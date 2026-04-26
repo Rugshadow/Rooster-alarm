@@ -1,7 +1,25 @@
 {
   "expo": {
     "name": "PeaceAlarm",
-    "slug": "PeaceAlarm",
-    "version": "1.0.0"
+    "slug": "peace-alarm",
+    "version": "1.0.0",
+    "scheme": "peace-alarm",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.peacealarm.app"
+    },
+    "android": {
+      "package": "com.peacealarm.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#BFDE30"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-av"
+    ]
   }
 }
