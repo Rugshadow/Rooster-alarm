@@ -7,33 +7,114 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import ChannelAvatar from '../../components/ChannelAvatar';
 import ChannelSheet, { type Channel } from '../../components/ChannelSheet';
 import AlarmSheet from '../../components/AlarmSheet';
 import { useChannels } from '../../hooks/useChannels';
+import { useTheme } from '../../hooks/useTheme';
+
+const GENRES = ['Music', 'News', 'Comedy', 'Ambient', 'Motivational', 'Religious', 'Education', 'Storytelling', 'Fitness', 'Alternative'];
+
+function GenreGridSheet({
+  title,
+  channels,
+  visible,
+  onClose,
+  onPress,
+}: {
+  title: string;
+  channels: Channel[];
+  visible: boolean;
+  onClose: () => void;
+  onPress: (ch: Channel) => void;
+}) {
+  const { bg, text, textSecondary } = useTheme();
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+      <SafeAreaView className="flex-1" style={{ backgroundColor: bg }} edges={['left', 'right']}>
+        <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+          <View className="px-6 pt-2 pb-3">
+            <Text className="text-[17px] font-semibold text-text-primary text-center">{title}</Text>
+          </View>
+        </SafeAreaView>
+
+        <FlatList
+          data={channels}
+          keyExtractor={(item) => item.id}
+          numColumns={3}
+          contentContainerStyle={{ padding: 16, gap: 16 }}
+          columnWrapperStyle={{ gap: 16 }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              onPress={() => { onPress(item); onClose(); }}
+              className="flex-1 items-center"
+            >
+              <ChannelAvatar id={item.id} name={item.name} size="carousel" imageUrl={item.imageUrl} />
+              <Text className="text-[12px] mt-2 text-center" numberOfLines={2} style={{ color: textSecondary }}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
+
+        <View style={{ backgroundColor: Colors.primary, paddingBottom: 24 }}>
+          <TouchableOpacity
+            onPress={onClose}
+            className="flex-row items-center justify-center gap-1 py-4"
+          >
+            <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
+            <Text className="font-medium text-[15px] text-text-primary">Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+}
 
 function CarouselSection({
   title,
   channels,
   onPress,
+  onSeeMore,
 }: {
   title: string;
   channels: Channel[];
   onPress: (ch: Channel) => void;
+  onSeeMore?: () => void;
 }) {
+  const { text, textSecondary } = useTheme();
   if (channels.length === 0) return null;
+  const visible = channels.slice(0, 10);
+  const hasMore = channels.length > 10;
+
   return (
     <View className="mb-6">
-      <Text className="text-[18px] font-bold text-text-primary px-4 mb-3">{title}</Text>
+      <Text className="text-[18px] font-bold px-4 mb-3" style={{ color: text }}>{title}</Text>
       <FlatList
         horizontal
         showsHorizontalScrollIndicator={false}
-        data={channels}
+        data={visible}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}
+        ListFooterComponent={
+          hasMore && onSeeMore ? (
+            <TouchableOpacity
+              onPress={onSeeMore}
+              className="items-center justify-center"
+              style={{ width: 120, height: 120, backgroundColor: Colors.primary }}
+            >
+              <Ionicons name="arrow-forward-circle-outline" size={28} color={Colors.textPrimary} />
+              <Text className="text-[11px] font-semibold mt-1" style={{ color: Colors.textPrimary }}>
+                See More
+              </Text>
+            </TouchableOpacity>
+          ) : null
+        }
         renderItem={({ item }) => (
           <TouchableOpacity
             onPress={() => onPress(item)}
@@ -41,7 +122,7 @@ function CarouselSection({
             style={{ width: 120 }}
           >
             <ChannelAvatar id={item.id} name={item.name} size="carousel" imageUrl={item.imageUrl} />
-            <Text className="text-[12px] text-text-secondary mt-2 text-center" numberOfLines={2}>
+            <Text className="text-[12px] mt-2 text-center" numberOfLines={2} style={{ color: textSecondary }}>
               {item.name}
             </Text>
           </TouchableOpacity>
@@ -52,11 +133,14 @@ function CarouselSection({
 }
 
 export default function BrowseScreen() {
+  const { bg, textSecondary } = useTheme();
   const { channels, loading } = useChannels();
   const [searchText, setSearchText] = useState('');
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [alarmSheetVisible, setAlarmSheetVisible] = useState(false);
+  const [gridGenre, setGridGenre] = useState<{ title: string; channels: Channel[] } | null>(null);
+
   const openChannel = (channel: Channel) => {
     setSelectedChannel(channel);
     setSheetVisible(true);
@@ -68,24 +152,25 @@ export default function BrowseScreen() {
     : null;
 
   const topByFollowers = [...channels].sort((a, b) => b.listeners - a.listeners);
-  const genres = [...new Set(channels.map((c) => c.genre))];
+  const genres = GENRES.filter((g) => channels.some((c) => c.genre === g));
   const genreSections = genres.map((genre) => ({
-    title: genre.charAt(0).toUpperCase() + genre.slice(1),
-    channels: channels.filter((c) => c.genre === genre),
+    title: genre,
+    channels: channels.filter((c) => c.genre === genre).sort((a, b) => b.listeners - a.listeners),
   }));
 
   return (
     <>
-      <ScrollView className="flex-1 bg-white" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1" style={{ backgroundColor: bg }} showsVerticalScrollIndicator={false}>
         <View className="px-4 pt-4 pb-2">
           <View className="flex-row items-center bg-surface rounded-2xl px-4 py-3 gap-2">
             <Ionicons name="search" size={18} color={Colors.textSecondary} />
             <TextInput
               value={searchText}
               onChangeText={setSearchText}
-              placeholder="Search & filter alarms..."
+              placeholder="Search channels..."
               placeholderTextColor={Colors.textSecondary}
-              className="flex-1 text-[15px] text-text-primary"
+              className="flex-1 text-[15px]"
+              style={{ color: textSecondary }}
               autoCapitalize="none"
               autoCorrect={false}
             />
@@ -108,14 +193,20 @@ export default function BrowseScreen() {
                 <CarouselSection title="Results" channels={filteredChannels} onPress={openChannel} />
               ) : (
                 <View className="items-center py-16">
-                  <Text className="text-text-secondary text-[15px]">No channels found for "{searchText}"</Text>
+                  <Text className="text-[15px]" style={{ color: textSecondary }}>No channels found for "{searchText}"</Text>
                 </View>
               )
             ) : (
               <>
-                <CarouselSection title="Most Followed" channels={topByFollowers} onPress={openChannel} />
-                {genreSections.map((section) => (
-                  <CarouselSection key={section.title} title={section.title} channels={section.channels} onPress={openChannel} />
+                <CarouselSection title="Popular" channels={topByFollowers} onPress={openChannel} onSeeMore={() => setGridGenre({ title: 'Popular', channels: topByFollowers })} />
+                {genreSections.map((section, i) => (
+                  <CarouselSection
+                    key={`${section.title}-${i}`}
+                    title={section.title}
+                    channels={section.channels}
+                    onPress={openChannel}
+                    onSeeMore={() => setGridGenre(section)}
+                  />
                 ))}
               </>
             )}
@@ -139,6 +230,14 @@ export default function BrowseScreen() {
         onClose={() => setAlarmSheetVisible(false)}
         onSave={() => setAlarmSheetVisible(false)}
         channels={channels}
+      />
+
+      <GenreGridSheet
+        visible={!!gridGenre}
+        title={gridGenre?.title ?? ''}
+        channels={gridGenre?.channels ?? []}
+        onClose={() => setGridGenre(null)}
+        onPress={openChannel}
       />
     </>
   );

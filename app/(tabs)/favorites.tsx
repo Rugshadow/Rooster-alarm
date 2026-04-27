@@ -7,6 +7,7 @@ import ChannelAvatar from '../../components/ChannelAvatar';
 import AudioListRow from '../../components/AudioListRow';
 import type { Channel, AudioClip } from '../../components/ChannelSheet';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../hooks/useTheme';
 import { supabase } from '../../lib/supabase';
 
 type Tab = 'channels' | 'clips';
@@ -14,6 +15,7 @@ type FavoriteClip = AudioClip & { channelName: string; channelId: string; imageU
 
 export default function FavoritesScreen() {
   const { isLoggedIn, session } = useAuth();
+  const { bg } = useTheme();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('channels');
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -120,7 +122,7 @@ export default function FavoritesScreen() {
 
   if (!isLoggedIn) {
     return (
-      <View className="flex-1 bg-white items-center justify-center px-8">
+      <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: bg }}>
         <Text className="text-text-secondary text-[15px] text-center mb-8">
           Log in to save your favorite channels here.
         </Text>
@@ -137,14 +139,14 @@ export default function FavoritesScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 bg-white items-center justify-center">
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: bg }}>
         <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-white">
+    <View className="flex-1" style={{ backgroundColor: bg }}>
       <View className="mx-4 mt-4 mb-2 bg-surface rounded-2xl p-1 flex-row">
         {(['channels', 'clips'] as Tab[]).map((tab) => (
           <TouchableOpacity

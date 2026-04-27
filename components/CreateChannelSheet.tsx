@@ -14,8 +14,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../constants/colors';
 
 const GENRES = [
-  'Music', 'News', 'Comedy', 'Ambient', 'Jazz',
-  'Motivation', 'Meditation', 'Education', 'Fitness', 'Storytelling',
+  'Music', 'News', 'Comedy', 'Ambient', 'Motivational',
+  'Religious', 'Education', 'Storytelling', 'Fitness', 'Alternative',
 ];
 
 type Props = {

@@ -21,7 +21,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+const HOURS_12 = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+const HOURS_24 = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
 const ITEM_HEIGHT = 72;
@@ -217,8 +218,10 @@ function ChannelPickerModal({
 }
 
 export default function AlarmSheet({ visible, onClose, onSave }: Props) {
+  const { timeFormat } = useAuth();
+  const HOURS = timeFormat === 'military' ? HOURS_24 : HOURS_12;
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
-  const [hour, setHour] = useState('07');
+  const [hour, setHour] = useState(timeFormat === 'military' ? '07' : '07');
   const [minute, setMinute] = useState('00');
   const [ampm, setAmpm] = useState<'AM' | 'PM'>('AM');
   const [repeatDays, setRepeatDays] = useState<number[]>([]);
@@ -252,14 +255,22 @@ export default function AlarmSheet({ visible, onClose, onSave }: Props) {
 
   const handleSave = () => {
     if (!selectedChannel) return;
-    const h = parseInt(hour) + (ampm === 'PM' && parseInt(hour) !== 12 ? 12 : 0);
+    let h: number;
+    let resolvedAmpm: 'AM' | 'PM';
+    if (timeFormat === 'military') {
+      h = parseInt(hour);
+      resolvedAmpm = h >= 12 ? 'PM' : 'AM';
+    } else {
+      h = parseInt(hour) + (ampm === 'PM' && parseInt(hour) !== 12 ? 12 : 0);
+      resolvedAmpm = ampm;
+    }
     onSave({
       channelId: selectedChannel.id,
       channelName: selectedChannel.name,
       channelImageUrl: selectedChannel.imageUrl,
       hour: h,
       minute: parseInt(minute),
-      ampm,
+      ampm: resolvedAmpm,
       repeatDays,
     });
     reset();
@@ -329,23 +340,25 @@ export default function AlarmSheet({ visible, onClose, onSave }: Props) {
             <Text className="text-[40px] font-bold text-text-primary mb-2">:</Text>
             <TimeScroller items={MINUTES} selected={minute} onChange={setMinute} onAdjust={adjustMinute} />
 
-            <View className="items-center gap-2 ml-2">
-              {(['AM', 'PM'] as const).map((period) => (
-                <TouchableOpacity
-                  key={period}
-                  onPress={() => setAmpm(period)}
-                  className="px-3 py-2 rounded-xl"
-                  style={{ backgroundColor: ampm === period ? Colors.primaryLight : Colors.surface }}
-                >
-                  <Text
-                    className="font-semibold text-[15px]"
-                    style={{ color: ampm === period ? Colors.textPrimary : Colors.textSecondary }}
+            {timeFormat !== 'military' && (
+              <View className="items-center gap-2 ml-2">
+                {(['AM', 'PM'] as const).map((period) => (
+                  <TouchableOpacity
+                    key={period}
+                    onPress={() => setAmpm(period)}
+                    className="px-3 py-2 rounded-xl"
+                    style={{ backgroundColor: ampm === period ? Colors.primaryLight : Colors.surface }}
                   >
-                    {period}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                    <Text
+                      className="font-semibold text-[15px]"
+                      style={{ color: ampm === period ? Colors.textPrimary : Colors.textSecondary }}
+                    >
+                      {period}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
 
           <Text className="text-[12px] font-semibold text-text-secondary tracking-wider mt-6 mb-3">

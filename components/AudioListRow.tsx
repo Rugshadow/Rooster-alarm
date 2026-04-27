@@ -42,25 +42,23 @@ export default function AudioListRow({
   onDelete,
 }: Props) {
   return (
-    <View className="flex-row items-center py-3 px-4 bg-white border-b border-gray-100">
-      <TouchableOpacity onPress={onPress} className="mr-3">
-        <View style={{ width: 50, height: 50 }} className="items-center justify-center">
-          {isScheduled ? (
-            <View style={{ width: 50, height: 50, borderRadius: 10 }} className="bg-surface items-center justify-center">
-              <Ionicons name="moon" size={24} color={Colors.textSecondary} />
-            </View>
-          ) : imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={{ width: 50, height: 50, borderRadius: 0 }} resizeMode="cover" />
-          ) : (
-            <ChannelAvatar id={channelId} name={channelName} size="list" />
-          )}
-          {isPlaying && (
-            <View className="absolute inset-0 items-center justify-center bg-black/30">
-              <Ionicons name="pause" size={20} color="white" />
-            </View>
-          )}
-        </View>
-      </TouchableOpacity>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center py-3 px-4 bg-white border-b border-gray-100">
+      <View style={{ width: 50, height: 50 }} className="items-center justify-center mr-3">
+        {isScheduled ? (
+          <View style={{ width: 50, height: 50, borderRadius: 10 }} className="bg-surface items-center justify-center">
+            <Ionicons name="moon" size={24} color={Colors.textSecondary} />
+          </View>
+        ) : imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={{ width: 50, height: 50, borderRadius: 0 }} resizeMode="cover" />
+        ) : (
+          <ChannelAvatar id={channelId} name={channelName} size="list" />
+        )}
+        {isPlaying && (
+          <View className="absolute inset-0 items-center justify-center bg-black/30">
+            <Ionicons name="pause" size={20} color="white" />
+          </View>
+        )}
+      </View>
 
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
@@ -89,10 +87,10 @@ export default function AudioListRow({
       )}
 
       {onDelete && (
-        <TouchableOpacity onPress={onDelete} className="px-2">
+        <TouchableOpacity onPress={onDelete} className="px-2" hitSlop={8}>
           <Ionicons name="trash-outline" size={20} color={Colors.destructive} />
         </TouchableOpacity>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }

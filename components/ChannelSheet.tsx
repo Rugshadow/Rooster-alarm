@@ -14,6 +14,7 @@ import AudioListRow from './AudioListRow';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useTheme } from '../hooks/useTheme';
 
 export type Channel = {
   id: string;
@@ -44,6 +45,7 @@ type Props = {
 
 export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: Props) {
   const { session, isLoggedIn } = useAuth();
+  const { bg, text, textSecondary } = useTheme();
   const { playingId, play, stop } = useAudioPlayer();
   const [isFavorited, setIsFavorited] = useState(false);
   const [favoriteClips, setFavoriteClips] = useState<string[]>([]);
@@ -105,15 +107,15 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView className="flex-1 bg-white" edges={['top', 'left', 'right']}>
+      <SafeAreaView className="flex-1" style={{ backgroundColor: bg }} edges={['top', 'left', 'right']}>
         <ScrollView>
           <View className="items-center px-6 pt-8 pb-6">
             <ChannelAvatar id={channel.id} name={channel.name} size="large" imageUrl={channel.imageUrl} />
-            <Text className="text-[22px] font-bold text-text-primary mt-4">{channel.name}</Text>
-            <Text className="text-text-secondary text-[14px] mt-1">
+            <Text className="text-[22px] font-bold mt-4" style={{ color: text }}>{channel.name}</Text>
+            <Text className="text-[14px] mt-1" style={{ color: textSecondary }}>
               {channel.listeners.toLocaleString()} listeners · {channel.genre}
             </Text>
-            <Text className="text-text-secondary text-[15px] mt-3 text-center">
+            <Text className="text-[15px] mt-3 text-center" style={{ color: textSecondary }}>
               {channel.bio}
             </Text>
 
@@ -135,7 +137,7 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
                     backgroundColor: isFavorited ? Colors.primary : 'transparent',
                   }}
                 >
-                  <Text className="font-medium text-[15px] text-text-primary">
+                  <Text className="font-medium text-[15px]" style={{ color: isFavorited ? Colors.textPrimary : text }}>
                     {isFavorited ? '★ Favorite' : '☆ Favorite'}
                   </Text>
                 </TouchableOpacity>
@@ -144,7 +146,7 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
           </View>
 
           <View className="px-4 pb-2">
-            <Text className="text-[13px] font-semibold text-text-secondary tracking-wider">
+            <Text className="text-[13px] font-semibold tracking-wider" style={{ color: textSecondary }}>
               ALL UPLOADS ({channel.uploads.length})
             </Text>
           </View>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 type Props = {
   visible: boolean;
@@ -17,8 +18,27 @@ type Props = {
 };
 
 export default function AccountSheet({ visible, onClose }: Props) {
-  const { signOut } = useAuth();
-  const [timeFormat, setTimeFormat] = useState<'standard' | 'military'>('standard');
+  const { signOut, username, session, timeFormat, setTimeFormat, colorScheme, setColorScheme } = useAuth();
+  const [uploadCount, setUploadCount] = useState(0);
+  const [alarmCount, setAlarmCount] = useState(0);
+  const [savedCount, setSavedCount] = useState(0);
+
+  useEffect(() => {
+    if (visible && session) fetchStats();
+  }, [visible]);
+
+  const fetchStats = async () => {
+    const { data } = await supabase
+      .from('users')
+      .select('uploads, set_alarms, favorite_channels')
+      .eq('user_id', session!.user.id)
+      .single();
+    if (data) {
+      setUploadCount((data.uploads as string[] | null)?.length ?? 0);
+      setAlarmCount(Object.keys((data.set_alarms as object | null) ?? {}).length);
+      setSavedCount((data.favorite_channels as string[] | null)?.length ?? 0);
+    }
+  };
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -39,39 +59,21 @@ export default function AccountSheet({ visible, onClose }: Props) {
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView className="flex-1 bg-white">
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-100">
-          <View className="w-8" />
-          <Text className="text-[17px] font-semibold text-text-primary">Account</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close" size={24} color={Colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-
-        <View className="px-4 pt-4">
-          <View className="bg-surface rounded-2xl p-4 flex-row items-center gap-4">
-            <View
-              className="w-16 h-16 rounded-full items-center justify-center"
-              style={{ backgroundColor: Colors.primary }}
-            >
-              <Ionicons name="person" size={32} color="white" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-[17px] font-bold text-text-primary">Username</Text>
-            </View>
-            <TouchableOpacity
-              className="border rounded-full px-4 py-1.5"
-              style={{ borderColor: Colors.primaryDark }}
-            >
-              <Text className="text-[14px] font-medium text-text-primary">Edit</Text>
-            </TouchableOpacity>
+      <SafeAreaView className="flex-1 bg-white" edges={['left', 'right']}>
+        <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+          <View className="px-6 pt-2 pb-3">
+            <Text className="text-[17px] font-semibold text-text-primary text-center">
+              {username ?? 'Account'}
+            </Text>
           </View>
+        </SafeAreaView>
 
-          <View className="flex-row mt-4 bg-surface rounded-2xl overflow-hidden">
+        <View className="flex-1 px-4 pt-4">
+          <View className="flex-row mt-0 bg-surface rounded-2xl overflow-hidden">
             {[
-              { label: 'Uploads', value: '0' },
-              { label: 'Alarms', value: '0' },
-              { label: 'Saved', value: '0' },
+              { label: 'Uploads', value: uploadCount },
+              { label: 'Alarms', value: alarmCount },
+              { label: 'Favorites', value: savedCount },
             ].map(({ label, value }, i) => (
               <View
                 key={label}
@@ -111,6 +113,30 @@ export default function AccountSheet({ visible, onClose }: Props) {
             ))}
           </View>
 
+          <View className="bg-surface rounded-2xl p-1 flex-row mt-4 mb-6">
+            {(['light', 'dark'] as const).map((scheme) => (
+              <TouchableOpacity
+                key={scheme}
+                onPress={() => setColorScheme(scheme)}
+                className="flex-1 py-2.5 rounded-xl items-center"
+                style={{
+                  backgroundColor: colorScheme === scheme ? Colors.background : 'transparent',
+                  shadowColor: colorScheme === scheme ? '#000' : 'transparent',
+                  shadowOpacity: colorScheme === scheme ? 0.08 : 0,
+                  shadowRadius: 4,
+                  elevation: colorScheme === scheme ? 2 : 0,
+                }}
+              >
+                <Text
+                  className="font-medium text-[15px]"
+                  style={{ color: colorScheme === scheme ? Colors.textPrimary : Colors.textSecondary }}
+                >
+                  {scheme === 'light' ? 'Light' : 'Dark'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
           <TouchableOpacity
             onPress={() => { signOut(); onClose(); }}
             className="bg-surface rounded-full py-3.5 items-center mb-3"
@@ -126,6 +152,16 @@ export default function AccountSheet({ visible, onClose }: Props) {
             <Text className="font-semibold text-[15px]" style={{ color: Colors.destructive }}>
               Delete Account
             </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ backgroundColor: Colors.primary, paddingBottom: 24 }}>
+          <TouchableOpacity
+            onPress={onClose}
+            className="flex-row items-center justify-center gap-1 py-4"
+          >
+            <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
+            <Text className="font-medium text-[15px] text-text-primary">Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

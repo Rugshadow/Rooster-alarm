@@ -7,38 +7,42 @@ export function useChannels() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch();
+    load();
   }, []);
 
-  const fetch = async () => {
-    const [{ data: users }, { data: audioFiles }] = await Promise.all([
-      supabase.from('users').select('*'),
+  const load = async () => {
+    const [{ data: channelRows }, { data: audioFiles }, { data: users }] = await Promise.all([
+      supabase.from('channels').select('channel_id, name, genre, cover_photo, owner_id'),
       supabase.from('audio_files').select('*').order('created_at', { ascending: false }),
+      supabase.from('users').select('user_id, num_of_followers'),
     ]);
 
-    if (!users || !audioFiles) { setLoading(false); return; }
+    if (!channelRows) { setLoading(false); return; }
 
-    const mapped: Channel[] = users.map((user) => {
-      const uploads: AudioClip[] = audioFiles
-        .filter((f) => f.uploaded_by === user.user_id)
-        .map((f) => ({
+    const files = audioFiles ?? [];
+    const usersMap = Object.fromEntries((users ?? []).map((u: any) => [u.user_id, u]));
+
+    const mapped: Channel[] = channelRows.map((ch: any) => {
+      const uploads: AudioClip[] = files
+        .filter((f: any) => f.channel_id === ch.channel_id)
+        .map((f: any) => ({
           id: f.audio_id,
           title: f.title,
           date: new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          duration: f.duration ?? 0,
+          duration: f.duration_seconds ?? 0,
           audioUrl: f.audio_file,
           imageUrl: f.cover_photo,
         }));
 
-      const genre = audioFiles.find((f) => f.uploaded_by === user.user_id)?.genre ?? 'general';
+      const owner = usersMap[ch.owner_id];
 
       return {
-        id: user.user_id,
-        name: user.username,
-        genre,
-        listeners: user.num_of_followers ?? 0,
-        bio: user.bio ?? '',
-        imageUrl: user.profile_photo,
+        id: ch.channel_id,
+        name: ch.name,
+        genre: ch.genre ?? 'general',
+        listeners: owner?.num_of_followers ?? 0,
+        bio: '',
+        imageUrl: ch.cover_photo ?? undefined,
         uploads,
       };
     });
@@ -47,5 +51,5 @@ export function useChannels() {
     setLoading(false);
   };
 
-  return { channels, loading, refetch: fetch };
+  return { channels, loading, refetch: load };
 }

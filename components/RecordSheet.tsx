@@ -18,7 +18,7 @@ type RecordState = 'idle' | 'recording' | 'stopped' | 'playing';
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onSave: (data: { uri: string; title: string; thumbnailUri?: string; thumbnailBase64?: string; releaseDate?: Date }) => void;
+  onSave: (data: { uri: string; title: string; thumbnailUri?: string; thumbnailBase64?: string; releaseDate?: Date; durationSeconds: number }) => void;
 };
 
 const MAX_SECONDS = 120;
@@ -259,7 +259,7 @@ export default function RecordSheet({ visible, onClose, onSave }: Props) {
         onBack={() => setFinalizeVisible(false)}
         onComplete={(data) => {
           setFinalizeVisible(false);
-          onSave({ uri: recordingUri!, ...data });
+          onSave({ uri: recordingUri!, durationSeconds: elapsed, ...data });
           handleClose();
         }}
       />

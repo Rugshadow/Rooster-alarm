@@ -8,6 +8,8 @@ export const Colors = {
   textSecondary: '#888888',
   destructive: '#E53935',
   destructiveLight: '#FDECEA',
+  darkBackground: '#1E1E1E',
+  darkSurface: '#2C2C2E',
 } as const;
 
 export const CHANNEL_COLORS = [
