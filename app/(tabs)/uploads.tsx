@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import AudioListRow from '../../components/AudioListRow';
 import RecordSheet from '../../components/RecordSheet';
 import CreateChannelSheet from '../../components/CreateChannelSheet';
+import MyChannelsSheet from '../../components/MyChannelsSheet';
 
 type Upload = {
   id: string;
@@ -29,11 +30,12 @@ export default function UploadsScreen() {
   const { isLoggedIn, session } = useAuth();
   const router = useRouter();
   const [recordVisible, setRecordVisible] = useState(false);
-  const [contentOrder, setContentOrder] = useState<'newest_first' | 'oldest_first'>('newest_first');
   const [uploads, setUploads] = useState<Upload[]>(MOCK_UPLOADS);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [hasChannels, setHasChannels] = useState<boolean | null>(null);
   const [createChannelVisible, setCreateChannelVisible] = useState(false);
+  const [myChannelsVisible, setMyChannelsVisible] = useState(false);
+  const [channelRefreshTrigger, setChannelRefreshTrigger] = useState(0);
   const [channelName, setChannelName] = useState<string>('Your Channel');
   const [channelCover, setChannelCover] = useState<string | null>(null);
 
@@ -148,6 +150,7 @@ export default function UploadsScreen() {
             setChannelName(name);
             setChannelCover(coverUrl);
             setHasChannels(true);
+            setChannelRefreshTrigger((n) => n + 1);
           }}
         />
       </>
@@ -165,39 +168,28 @@ export default function UploadsScreen() {
     ]);
   };
 
-  const sortedUploads =
-    contentOrder === 'newest_first' ? [...uploads] : [...uploads].reverse();
-
   return (
     <>
       <FlatList
         className="flex-1 bg-white"
-        data={sortedUploads}
+        data={uploads}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
           <View>
-            <View className="flex-row gap-3 px-4 pt-4">
-              <TouchableOpacity
-                className="flex-1 rounded-full py-3 items-center"
-                style={{ backgroundColor: Colors.primary }}
-              >
-                <Text className="font-bold text-[15px] text-text-primary">My Channels</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="flex-1 rounded-full py-3 items-center border"
-                style={{ borderColor: Colors.primary }}
-              >
-                <Text className="font-medium text-[15px] text-text-primary">Edit Channel</Text>
-              </TouchableOpacity>
-            </View>
-
             <View className="items-center pt-6 pb-6 px-6">
               <Image
                 source={channelCover ? { uri: channelCover } : require('../../assets/icon.png')}
-                style={{ width: 220, height: 220 }}
+                style={{ width: 320, height: 320 }}
                 resizeMode="cover"
               />
-              <Text className="text-[20px] font-bold text-text-primary mt-4">{channelName}</Text>
+              <TouchableOpacity
+                onPress={() => setMyChannelsVisible(true)}
+                className="flex-row items-center gap-1 mt-4 rounded-full px-4 py-2"
+                style={{ backgroundColor: Colors.primary }}
+              >
+                <Text className="text-[16px] font-bold text-text-primary">{channelName}</Text>
+                <Ionicons name="chevron-down" size={16} color={Colors.textPrimary} />
+              </TouchableOpacity>
               <Text className="text-text-secondary text-[13px] mt-1">
                 {uploads.length} upload{uploads.length !== 1 ? 's' : ''}
               </Text>
@@ -206,10 +198,11 @@ export default function UploadsScreen() {
             <View className="flex-row gap-3 px-4 mb-4">
               <TouchableOpacity
                 onPress={() => setRecordVisible(true)}
-                className="flex-1 flex-row items-center justify-center gap-2 rounded-full py-3 bg-surface"
+                className="flex-1 flex-row items-center justify-center gap-2 rounded-full py-3"
+                style={{ backgroundColor: '#FF3B30' }}
               >
-                <Text style={{ fontSize: 16 }}>🎤</Text>
-                <Text className="font-semibold text-[15px] text-text-primary">Record</Text>
+                <Ionicons name="mic" size={18} color="white" />
+                <Text className="font-semibold text-[15px]" style={{ color: 'white' }}>Record</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="flex-1 flex-row items-center justify-center gap-2 rounded-full py-3"
@@ -220,28 +213,13 @@ export default function UploadsScreen() {
               </TouchableOpacity>
             </View>
 
-            <View className="mx-4 mb-4 bg-surface rounded-2xl p-1 flex-row">
-              {(['newest_first', 'oldest_first'] as const).map((order) => (
-                <TouchableOpacity
-                  key={order}
-                  onPress={() => setContentOrder(order)}
-                  className="flex-1 py-2.5 rounded-xl items-center"
-                  style={{
-                    backgroundColor: contentOrder === order ? Colors.background : 'transparent',
-                    elevation: contentOrder === order ? 2 : 0,
-                  }}
-                >
-                  <Text
-                    className="font-medium text-[14px]"
-                    style={{
-                      color: contentOrder === order ? Colors.textPrimary : Colors.textSecondary,
-                    }}
-                  >
-                    {order === 'newest_first' ? 'Newest First' : 'Oldest First'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <TouchableOpacity
+              className="mx-4 mb-4 flex-row items-center justify-center gap-2 rounded-full py-3"
+              style={{ backgroundColor: Colors.primary }}
+            >
+              <Ionicons name="settings-outline" size={16} color={Colors.textPrimary} />
+              <Text className="font-semibold text-[15px] text-text-primary">Channel Settings</Text>
+            </TouchableOpacity>
 
             <Text className="text-[12px] font-semibold text-text-secondary tracking-wider px-4 mb-2">
               YOUR UPLOADS
@@ -267,7 +245,64 @@ export default function UploadsScreen() {
       <RecordSheet
         visible={recordVisible}
         onClose={() => setRecordVisible(false)}
-        onSave={() => {}}
+        onSave={(_data) => {
+          // TODO: upload recording to Supabase
+        }}
+      />
+
+      <MyChannelsSheet
+        visible={myChannelsVisible}
+        onClose={() => setMyChannelsVisible(false)}
+        onAddNew={() => {
+          setMyChannelsVisible(false);
+          setCreateChannelVisible(true);
+        }}
+        onSelect={(ch) => {
+          setChannelName(ch.name);
+          setChannelCover(ch.cover_photo);
+        }}
+        refreshTrigger={channelRefreshTrigger}
+      />
+
+      <CreateChannelSheet
+        visible={createChannelVisible}
+        onClose={() => setCreateChannelVisible(false)}
+        onSave={async ({ name, genre, coverPhotoUri, coverPhotoBase64 }) => {
+          if (!session) return;
+          let coverUrl: string | null = null;
+          if (coverPhotoUri && coverPhotoBase64) {
+            const ext = coverPhotoUri.split('.').pop()?.toLowerCase() ?? 'jpg';
+            const fileName = `${session.user.id}-${Date.now()}.${ext}`;
+            const arrayBuffer = decode(coverPhotoBase64);
+            const { error: uploadError } = await supabase.storage
+              .from('channel-covers')
+              .upload(fileName, arrayBuffer, { contentType: `image/${ext}` });
+            if (uploadError) {
+              Alert.alert('Upload failed', uploadError.message);
+            } else {
+              const { data: urlData } = supabase.storage.from('channel-covers').getPublicUrl(fileName);
+              coverUrl = urlData.publicUrl;
+            }
+          }
+          const { data: channel, error } = await supabase
+            .from('channels')
+            .insert({ owner_id: session.user.id, name, genre, cover_photo: coverUrl })
+            .select('channel_id')
+            .single();
+          if (error || !channel) return;
+          const { data: userData } = await supabase
+            .from('users')
+            .select('channels')
+            .eq('user_id', session.user.id)
+            .single();
+          const updated = [...(userData?.channels ?? []), channel.channel_id];
+          await supabase.from('users').update({ channels: updated }).eq('user_id', session.user.id);
+          setCreateChannelVisible(false);
+          setChannelName(name);
+          setChannelCover(coverUrl);
+          setHasChannels(true);
+          setChannelRefreshTrigger((n) => n + 1);
+        }}
       />
     </>
   );
