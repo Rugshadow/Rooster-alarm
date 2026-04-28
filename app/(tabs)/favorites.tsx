@@ -5,9 +5,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/colors';
 import ChannelAvatar from '../../components/ChannelAvatar';
 import AudioListRow from '../../components/AudioListRow';
-import type { Channel, AudioClip } from '../../components/ChannelSheet';
+import ChannelSheet, { type Channel, type AudioClip } from '../../components/ChannelSheet';
+import AlarmSheet from '../../components/AlarmSheet';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../hooks/useTheme';
+import { useAlarms } from '../../hooks/useAlarms';
 import { supabase } from '../../lib/supabase';
 
 type Tab = 'channels' | 'clips';
@@ -16,12 +18,16 @@ type FavoriteClip = AudioClip & { channelName: string; channelId: string; imageU
 export default function FavoritesScreen() {
   const { isLoggedIn, session } = useAuth();
   const { bg } = useTheme();
+  const { addAlarm } = useAlarms();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('channels');
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [clips, setClips] = useState<FavoriteClip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [alarmSheetVisible, setAlarmSheetVisible] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -40,38 +46,43 @@ export default function FavoritesScreen() {
       .eq('user_id', userId)
       .single();
 
+    console.log('[favorites] userData:', JSON.stringify(userData));
     if (!userData) { setLoading(false); return; }
 
     const favChannelIds: string[] = userData.favorite_channels ?? [];
+    console.log('[favorites] favChannelIds:', favChannelIds);
     const favSampleIds: string[] = userData.favorite_samples ?? [];
 
-    const [{ data: favUsers }, { data: audioFiles }] = await Promise.all([
+    const [channelsResult, audioResult] = await Promise.all([
       favChannelIds.length > 0
-        ? supabase.from('users').select('*').in('user_id', favChannelIds)
-        : Promise.resolve({ data: [] }),
+        ? supabase.from('channels').select('*').in('channel_id', favChannelIds)
+        : Promise.resolve({ data: [], error: null }),
       favChannelIds.length > 0
-        ? supabase.from('audio_files').select('*').in('uploaded_by', favChannelIds)
-        : Promise.resolve({ data: [] }),
+        ? supabase.from('audio_files').select('*').in('channel_id', favChannelIds).order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
     ]);
+    console.log('[favorites] channels result:', JSON.stringify(channelsResult));
+    const { data: favChannels } = channelsResult;
+    const { data: audioFiles } = audioResult;
 
-    const mappedChannels: Channel[] = (favUsers ?? []).map((u) => {
+    const mappedChannels: Channel[] = (favChannels ?? []).map((ch) => {
       const uploads: AudioClip[] = (audioFiles ?? [])
-        .filter((f) => f.uploaded_by === u.user_id)
+        .filter((f) => f.channel_id === ch.channel_id)
         .map((f) => ({
           id: f.audio_id,
           title: f.title,
           date: new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          duration: f.duration ?? 0,
+          duration: f.duration_seconds ?? 0,
           audioUrl: f.audio_file,
           imageUrl: f.cover_photo,
         }));
       return {
-        id: u.user_id,
-        name: u.username,
-        genre: (audioFiles ?? []).find((f) => f.uploaded_by === u.user_id)?.genre ?? '',
-        listeners: u.num_of_followers ?? 0,
-        bio: u.bio ?? '',
-        imageUrl: u.profile_photo,
+        id: ch.channel_id,
+        name: ch.name,
+        genre: ch.genre ?? '',
+        listeners: 0,
+        bio: '',
+        imageUrl: ch.cover_photo ?? undefined,
         uploads,
       };
     });
@@ -84,16 +95,16 @@ export default function FavoritesScreen() {
         .in('audio_id', favSampleIds);
 
       mappedClips = (favAudio ?? []).map((f) => {
-        const channel = mappedChannels.find((c) => c.id === f.uploaded_by);
+        const channel = mappedChannels.find((c) => c.id === f.channel_id);
         return {
           id: f.audio_id,
           title: f.title,
           date: new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          duration: f.duration ?? 0,
+          duration: f.duration_seconds ?? 0,
           audioUrl: f.audio_file,
           imageUrl: f.cover_photo,
           channelName: channel?.name ?? '',
-          channelId: f.uploaded_by,
+          channelId: f.channel_id,
         };
       });
     }
@@ -182,7 +193,7 @@ export default function FavoritesScreen() {
             contentContainerStyle={{ padding: 16, gap: 16 }}
             columnWrapperStyle={{ gap: 16 }}
             renderItem={({ item }) => (
-              <TouchableOpacity className="flex-1 items-center">
+              <TouchableOpacity className="flex-1 items-center" onPress={() => { setSelectedChannel(item); setSheetVisible(true); }}>
                 <ChannelAvatar id={item.id} name={item.name} size="carousel" imageUrl={item.imageUrl} />
                 <Text className="text-[12px] text-text-secondary mt-2 text-center" numberOfLines={2}>
                   {item.name}
@@ -219,6 +230,23 @@ export default function FavoritesScreen() {
           />
         )
       )}
+      <ChannelSheet
+        channel={selectedChannel}
+        visible={sheetVisible}
+        onClose={() => setSheetVisible(false)}
+        onSetAlarm={(channel) => {
+          setSelectedChannel(channel);
+          setSheetVisible(false);
+          setAlarmSheetVisible(true);
+        }}
+      />
+
+      <AlarmSheet
+        visible={alarmSheetVisible}
+        onClose={() => setAlarmSheetVisible(false)}
+        onSave={(alarm) => { addAlarm(alarm); setAlarmSheetVisible(false); }}
+        preselectedChannel={selectedChannel ?? undefined}
+      />
     </View>
   );
 }

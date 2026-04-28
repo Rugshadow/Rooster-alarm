@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { stopAllAudio } from '../lib/audioRegistry';
 import type { Session } from '@supabase/supabase-js';
 
 type TimeFormat = 'standard' | 'military';
@@ -101,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTimeFormat,
       colorScheme: colorSchemeState,
       setColorScheme,
-      signOut: () => supabase.auth.signOut(),
+      signOut: () => { stopAllAudio(); supabase.auth.signOut(); },
     }}>
       {children}
     </AuthContext.Provider>

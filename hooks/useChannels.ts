@@ -14,13 +14,34 @@ export function useChannels() {
     const [{ data: channelRows }, { data: audioFiles }, { data: users }] = await Promise.all([
       supabase.from('channels').select('channel_id, name, genre, cover_photo, owner_id'),
       supabase.from('audio_files').select('*').order('created_at', { ascending: false }),
-      supabase.from('users').select('user_id, num_of_followers'),
+      supabase.from('users').select('user_id, set_alarms'),
     ]);
 
     if (!channelRows) { setLoading(false); return; }
 
     const files = audioFiles ?? [];
-    const usersMap = Object.fromEntries((users ?? []).map((u: any) => [u.user_id, u]));
+
+    // alarms may store channelId as owner user_id (old) or channel_id (new) — resolve both
+    const ownerToChannelId: Record<string, string> = {};
+    for (const ch of channelRows) {
+      ownerToChannelId[ch.owner_id] = ch.channel_id;
+    }
+
+    // Count users who have at least one alarm set for each channel
+    const alarmCountMap: Record<string, number> = {};
+    for (const u of (users ?? [])) {
+      const alarms = u.set_alarms as Record<string, { channelId: string }> | null;
+      if (!alarms) continue;
+      const seen = new Set<string>();
+      for (const alarm of Object.values(alarms)) {
+        if (!alarm.channelId) continue;
+        const resolvedId = ownerToChannelId[alarm.channelId] ?? alarm.channelId;
+        if (!seen.has(resolvedId)) {
+          seen.add(resolvedId);
+          alarmCountMap[resolvedId] = (alarmCountMap[resolvedId] ?? 0) + 1;
+        }
+      }
+    }
 
     const mapped: Channel[] = channelRows.map((ch: any) => {
       const uploads: AudioClip[] = files
@@ -34,13 +55,11 @@ export function useChannels() {
           imageUrl: f.cover_photo,
         }));
 
-      const owner = usersMap[ch.owner_id];
-
       return {
         id: ch.channel_id,
         name: ch.name,
         genre: ch.genre ?? 'general',
-        listeners: owner?.num_of_followers ?? 0,
+        listeners: alarmCountMap[ch.channel_id] ?? 0,
         bio: '',
         imageUrl: ch.cover_photo ?? undefined,
         uploads,

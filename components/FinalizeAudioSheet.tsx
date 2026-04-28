@@ -44,6 +44,8 @@ export default function FinalizeAudioSheet({ visible, onBack, onComplete }: Prop
     if (status !== 'granted') return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
       quality: 0.8,
       base64: true,
     });

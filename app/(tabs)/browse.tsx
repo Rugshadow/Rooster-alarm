@@ -16,6 +16,7 @@ import ChannelAvatar from '../../components/ChannelAvatar';
 import ChannelSheet, { type Channel } from '../../components/ChannelSheet';
 import AlarmSheet from '../../components/AlarmSheet';
 import { useChannels } from '../../hooks/useChannels';
+import { useAlarms } from '../../hooks/useAlarms';
 import { useTheme } from '../../hooks/useTheme';
 
 const GENRES = ['Music', 'News', 'Comedy', 'Ambient', 'Motivational', 'Religious', 'Education', 'Storytelling', 'Fitness', 'Alternative'];
@@ -135,6 +136,7 @@ function CarouselSection({
 export default function BrowseScreen() {
   const { bg, textSecondary } = useTheme();
   const { channels, loading } = useChannels();
+  const { addAlarm } = useAlarms();
   const [searchText, setSearchText] = useState('');
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -228,8 +230,8 @@ export default function BrowseScreen() {
       <AlarmSheet
         visible={alarmSheetVisible}
         onClose={() => setAlarmSheetVisible(false)}
-        onSave={() => setAlarmSheetVisible(false)}
-        channels={channels}
+        onSave={(alarm) => { addAlarm(alarm); setAlarmSheetVisible(false); }}
+        preselectedChannel={selectedChannel ?? undefined}
       />
 
       <GenreGridSheet

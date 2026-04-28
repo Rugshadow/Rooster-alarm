@@ -81,6 +81,7 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onSave: (alarm: AlarmData) => void;
+  preselectedChannel?: Channel;
 };
 
 export type AlarmData = {
@@ -91,6 +92,7 @@ export type AlarmData = {
   minute: number;
   ampm: 'AM' | 'PM';
   repeatDays: number[];
+  notificationIds?: string[];
 };
 
 function ChannelPickerModal({
@@ -217,10 +219,14 @@ function ChannelPickerModal({
   );
 }
 
-export default function AlarmSheet({ visible, onClose, onSave }: Props) {
+export default function AlarmSheet({ visible, onClose, onSave, preselectedChannel }: Props) {
   const { timeFormat } = useAuth();
   const HOURS = timeFormat === 'military' ? HOURS_24 : HOURS_12;
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
+
+  useEffect(() => {
+    if (visible && preselectedChannel) setSelectedChannel(preselectedChannel);
+  }, [visible, preselectedChannel]);
   const [hour, setHour] = useState(timeFormat === 'military' ? '07' : '07');
   const [minute, setMinute] = useState('00');
   const [ampm, setAmpm] = useState<'AM' | 'PM'>('AM');

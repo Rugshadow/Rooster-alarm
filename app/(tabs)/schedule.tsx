@@ -1,66 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Image, FlatList, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Image, FlatList, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../hooks/useTheme';
-import AlarmSheet, { type AlarmData } from '../../components/AlarmSheet';
+import AlarmSheet from '../../components/AlarmSheet';
+import { useAlarms } from '../../hooks/useAlarms';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-type SetAlarm = AlarmData & { id: string };
-
 export default function ScheduleScreen() {
-  const { session, isLoggedIn, timeFormat } = useAuth();
+  const { timeFormat } = useAuth();
   const { bg } = useTheme();
-  const [alarms, setAlarms] = useState<SetAlarm[]>([]);
+  const { alarms, addAlarm, removeAlarm } = useAlarms();
   const [sheetVisible, setSheetVisible] = useState(false);
-
-  useEffect(() => {
-    if (isLoggedIn && session) fetchAlarms();
-  }, [isLoggedIn, session]);
-
-  const fetchAlarms = async () => {
-    const { data } = await supabase
-      .from('users')
-      .select('set_alarms')
-      .eq('user_id', session!.user.id)
-      .single();
-    const raw = (data?.set_alarms as Record<string, SetAlarm> | null) ?? {};
-    setAlarms(Object.values(raw));
-  };
-
-  const persistAlarms = async (updated: SetAlarm[]) => {
-    if (!session) return;
-    const asObject = Object.fromEntries(updated.map((a) => [a.id, a]));
-    await supabase
-      .from('users')
-      .update({ set_alarms: asObject } as any)
-      .eq('user_id', session.user.id);
-  };
-
-  const addAlarm = (data: AlarmData) => {
-    const newAlarm: SetAlarm = { ...data, id: Date.now().toString() };
-    const updated = [...alarms, newAlarm];
-    setAlarms(updated);
-    persistAlarms(updated);
-  };
-
-  const removeAlarm = (id: string) => {
-    Alert.alert('Remove Alarm', 'Are you sure you want to remove this alarm?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => {
-          const updated = alarms.filter((a) => a.id !== id);
-          setAlarms(updated);
-          persistAlarms(updated);
-        },
-      },
-    ]);
-  };
 
   const formatTime = (alarm: SetAlarm) => {
     const m = String(alarm.minute).padStart(2, '0');

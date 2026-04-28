@@ -21,7 +21,7 @@ type Props = {
   onSave: (data: { uri: string; title: string; thumbnailUri?: string; thumbnailBase64?: string; releaseDate?: Date; durationSeconds: number }) => void;
 };
 
-const MAX_SECONDS = 120;
+const MAX_SECONDS = 180;
 const NUM_BARS = 60; // one bar per 2 seconds over 2 minutes
 
 const RECORDING_OPTIONS = {
@@ -37,6 +37,7 @@ export default function RecordSheet({ visible, onClose, onSave }: Props) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSampleTimeRef = useRef(0);
   const boxWidthRef = useRef(1);
+  const [boxWidth, setBoxWidth] = useState(1);
   const [playheadRatio, setPlayheadRatio] = useState(0);
   const isDraggingRef = useRef(false);
   const [finalizeVisible, setFinalizeVisible] = useState(false);
@@ -47,7 +48,7 @@ export default function RecordSheet({ visible, onClose, onSave }: Props) {
   const playerStatus = useAudioPlayerStatus(player);
 
   useEffect(() => {
-    if (!visible) handleClose();
+    if (!visible) doClose();
   }, [visible]);
 
   useEffect(() => {
@@ -114,20 +115,38 @@ export default function RecordSheet({ visible, onClose, onSave }: Props) {
       player.pause();
       setState('stopped');
     } else {
-      player.seekTo(0);
       player.play();
       setState('playing');
     }
   };
 
-  const handleClose = async () => {
+  const doClose = async () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     if (state === 'recording') await recorder.stop();
     if (state === 'playing') player.pause();
     setState('idle');
     setElapsed(0);
     setRecordingUri(null);
+    setSamples([]);
+    setPlayheadRatio(0);
+    setFinalizeVisible(false);
+    lastSampleTimeRef.current = 0;
     onClose();
+  };
+
+  const handleClose = () => {
+    if (elapsed > 0) {
+      Alert.alert(
+        'Delete Recording',
+        'Are you sure you want to delete this recording?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: doClose },
+        ]
+      );
+    } else {
+      doClose();
+    }
   };
 
   const panResponder = PanResponder.create({
@@ -178,14 +197,27 @@ export default function RecordSheet({ visible, onClose, onSave }: Props) {
         </SafeAreaView>
 
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-[40px] font-bold text-text-primary mb-8">
-            {formatTime(elapsed)} / 2:00
+          <Text className="text-[13px] text-text-secondary text-center mb-6">
+            Alarms must be between 1 and 3 minutes in length.
           </Text>
+          <View className="flex-row items-end mb-8 gap-1">
+            <Text className="text-[40px] font-bold text-text-primary">
+              {formatTime(state === 'recording' ? elapsed : Math.round(playheadRatio * MAX_SECONDS))}
+            </Text>
+            <Text className="text-[24px] font-semibold text-text-secondary mb-1"> / </Text>
+            <Text className="text-[40px] font-bold text-text-secondary">
+              {formatTime(elapsed)}
+            </Text>
+            <Text className="text-[24px] font-semibold text-text-secondary mb-1"> / </Text>
+            <Text className="text-[40px] font-bold text-text-secondary">
+              {formatTime(MAX_SECONDS)}
+            </Text>
+          </View>
 
           <View
-            className="w-full rounded-2xl bg-surface flex-row items-center"
+            className="w-full bg-surface flex-row items-center"
             style={{ height: 120, position: 'relative' }}
-            onLayout={(e) => { boxWidthRef.current = e.nativeEvent.layout.width; }}
+            onLayout={(e) => { boxWidthRef.current = e.nativeEvent.layout.width; setBoxWidth(e.nativeEvent.layout.width); }}
             {...panResponder.panHandlers}
           >
             {Array.from({ length: NUM_BARS }).map((_, i) => (
@@ -196,26 +228,33 @@ export default function RecordSheet({ visible, onClose, onSave }: Props) {
                 pointerEvents="none"
                 style={{
                   position: 'absolute',
-                  left: playheadRatio * boxWidthRef.current - 1,
-                  top: 8,
-                  bottom: 8,
-                  width: 2,
+                  left: playheadRatio * boxWidthRef.current - 0.5,
+                  top: 0,
+                  bottom: 0,
+                  width: 1,
                   backgroundColor: Colors.textPrimary,
-                  borderRadius: 1,
                 }}
               />
             )}
+            <View
+              pointerEvents="none"
+              style={{ position: 'absolute', left: boxWidth / 3, top: '50%', transform: [{ translateX: -6 }, { translateY: -6 }] }}
+            >
+              <Text style={{ fontSize: 12, color: Colors.textSecondary, fontWeight: 'bold', lineHeight: 12 }}>✕</Text>
+            </View>
           </View>
 
           <View className="flex-row w-full mt-10 gap-2">
+            {/* Record / Stop */}
             <TouchableOpacity
-              onPress={state !== 'recording' && state !== 'playing' ? startRecording : undefined}
+              onPress={state === 'recording' ? stopRecording : state === 'playing' ? undefined : startRecording}
               className="flex-1 items-center justify-center rounded-2xl"
-              style={{ aspectRatio: 1, backgroundColor: Colors.destructive, opacity: state === 'recording' || state === 'playing' ? 0.3 : 1 }}
+              style={{ aspectRatio: 1, backgroundColor: Colors.destructive, opacity: state === 'playing' ? 0.3 : 1 }}
             >
-              <Ionicons name="mic" size={32} color="white" />
+              <Ionicons name={state === 'recording' ? 'stop' : 'mic'} size={32} color="white" />
             </TouchableOpacity>
 
+            {/* Play / Pause */}
             <TouchableOpacity
               onPress={state === 'stopped' || state === 'playing' ? togglePlayback : undefined}
               className="flex-1 items-center justify-center rounded-2xl bg-surface"
@@ -224,12 +263,13 @@ export default function RecordSheet({ visible, onClose, onSave }: Props) {
               <Ionicons name={state === 'playing' ? 'pause' : 'play'} size={32} color={Colors.textPrimary} />
             </TouchableOpacity>
 
+            {/* Return to start */}
             <TouchableOpacity
-              onPress={state === 'recording' ? stopRecording : undefined}
+              onPress={state === 'stopped' || state === 'playing' ? () => { player.seekTo(0); setPlayheadRatio(0); if (state === 'playing') { player.pause(); setState('stopped'); } } : undefined}
               className="flex-1 items-center justify-center rounded-2xl bg-surface"
-              style={{ aspectRatio: 1, opacity: state === 'recording' ? 1 : 0.3 }}
+              style={{ aspectRatio: 1, opacity: state === 'stopped' || state === 'playing' ? 1 : 0.3 }}
             >
-              <Ionicons name="stop" size={32} color={Colors.destructive} />
+              <Ionicons name="play-skip-back" size={32} color={Colors.textPrimary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -244,9 +284,9 @@ export default function RecordSheet({ visible, onClose, onSave }: Props) {
           </TouchableOpacity>
           <View style={{ width: 1, backgroundColor: Colors.primaryDark, marginVertical: 8 }} />
           <TouchableOpacity
-            onPress={recordingUri ? () => setFinalizeVisible(true) : undefined}
+            onPress={recordingUri && elapsed >= 60 ? () => setFinalizeVisible(true) : undefined}
             className="flex-1 flex-row items-center justify-center gap-1 py-4"
-            style={{ opacity: recordingUri ? 1 : 0.4 }}
+            style={{ opacity: recordingUri && elapsed >= 60 ? 1 : 0.4 }}
           >
             <Text className="font-medium text-[15px] text-text-primary">Next</Text>
             <Ionicons name="chevron-forward" size={20} color={Colors.textPrimary} />
@@ -258,9 +298,8 @@ export default function RecordSheet({ visible, onClose, onSave }: Props) {
         visible={finalizeVisible}
         onBack={() => setFinalizeVisible(false)}
         onComplete={(data) => {
-          setFinalizeVisible(false);
           onSave({ uri: recordingUri!, durationSeconds: elapsed, ...data });
-          handleClose();
+          doClose();
         }}
       />
     </Modal>
