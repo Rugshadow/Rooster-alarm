@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { Colors } from '../constants/colors';
 import ChannelAvatar from './ChannelAvatar';
 import type { Channel } from './ChannelSheet';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../hooks/useTheme';
 import { supabase } from '../lib/supabase';
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -27,51 +28,98 @@ const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'))
 
 const ITEM_HEIGHT = 72;
 
+const LOOP_REPS = 5;
+
 function TimeScroller({
   items,
   selected,
   onChange,
-  onAdjust,
 }: {
   items: string[];
   selected: string;
   onChange: (val: string) => void;
-  onAdjust: (delta: number) => void;
 }) {
+  const { text, textSecondary } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
-  const currentIndex = items.indexOf(selected);
+  const looped = useMemo(() => Array.from({ length: LOOP_REPS }, () => items).flat(), [items]);
+  const centerStart = Math.floor(LOOP_REPS / 2) * items.length;
 
-  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const y = e.nativeEvent.contentOffset.y;
-    const index = Math.round(y / ITEM_HEIGHT);
-    const clamped = Math.max(0, Math.min(index, items.length - 1));
-    if (items[clamped] !== selected) onChange(items[clamped]);
+  const scrollIndexRef = useRef(centerStart + items.indexOf(selected));
+  const suppressExternalRef = useRef(false);
+  const prevSelectedRef = useRef(selected);
+  const isSnappingRef = useRef(false);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: scrollIndexRef.current * ITEM_HEIGHT, animated: false });
+  }, []);
+
+  useEffect(() => {
+    if (selected !== prevSelectedRef.current) {
+      if (suppressExternalRef.current) {
+        suppressExternalRef.current = false;
+      } else {
+        const newScrollIndex = centerStart + items.indexOf(selected);
+        scrollIndexRef.current = newScrollIndex;
+        scrollRef.current?.scrollTo({ y: newScrollIndex * ITEM_HEIGHT, animated: false });
+      }
+    }
+    prevSelectedRef.current = selected;
+  }, [selected]);
+
+  const resolveItem = (rawIndex: number) => {
+    const itemIndex = ((rawIndex % items.length) + items.length) % items.length;
+    if (items[itemIndex] !== selected) onChange(items[itemIndex]);
+    scrollIndexRef.current = rawIndex;
+  };
+
+  const handleMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isSnappingRef.current) return;
+    const snappedIndex = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
+    scrollRef.current?.scrollTo({ y: snappedIndex * ITEM_HEIGHT, animated: false });
+    resolveItem(snappedIndex);
+  };
+
+  const handleScrollEndDrag = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isSnappingRef.current) return;
+    const snappedIndex = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
+    resolveItem(snappedIndex);
+    isSnappingRef.current = true;
+    scrollRef.current?.scrollTo({ y: snappedIndex * ITEM_HEIGHT, animated: true });
+    setTimeout(() => { isSnappingRef.current = false; }, 400);
+  };
+
+  const handleAdjustPress = (delta: number) => {
+    suppressExternalRef.current = true;
+    const newScrollIndex = scrollIndexRef.current + delta;
+    scrollIndexRef.current = newScrollIndex;
+    scrollRef.current?.scrollTo({ y: newScrollIndex * ITEM_HEIGHT, animated: true });
+    const newItemIndex = ((newScrollIndex % items.length) + items.length) % items.length;
+    onChange(items[newItemIndex]);
   };
 
   return (
     <View className="items-center">
-      <TouchableOpacity onPress={() => onAdjust(1)} className="p-2">
-        <Ionicons name="chevron-up" size={20} color={Colors.textSecondary} />
+      <TouchableOpacity onPress={() => handleAdjustPress(1)} className="p-2">
+        <Ionicons name="chevron-up" size={20} color={textSecondary} />
       </TouchableOpacity>
-      <View style={{ height: ITEM_HEIGHT, overflow: 'hidden' }} className="bg-primary-light rounded-xl px-8 justify-center">
+      <View style={{ height: ITEM_HEIGHT, overflow: 'hidden', backgroundColor: Colors.primaryLight }} className="rounded-xl px-8 justify-center">
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
-          snapToInterval={ITEM_HEIGHT}
-          decelerationRate="fast"
-          contentOffset={{ x: 0, y: currentIndex * ITEM_HEIGHT }}
-          onMomentumScrollEnd={handleScroll}
+          decelerationRate={0.999}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
+          onScrollEndDrag={handleScrollEndDrag}
           style={{ height: ITEM_HEIGHT }}
         >
-          {items.map((item) => (
-            <View key={item} style={{ height: ITEM_HEIGHT }} className="items-center justify-center">
-              <Text className="text-[40px] font-bold text-text-primary">{item}</Text>
+          {looped.map((item, idx) => (
+            <View key={idx} style={{ height: ITEM_HEIGHT }} className="items-center justify-center">
+              <Text style={{ fontSize: 40, fontWeight: 'bold', color: Colors.textPrimary }}>{item}</Text>
             </View>
           ))}
         </ScrollView>
       </View>
-      <TouchableOpacity onPress={() => onAdjust(-1)} className="p-2">
-        <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
+      <TouchableOpacity onPress={() => handleAdjustPress(-1)} className="p-2">
+        <Ionicons name="chevron-down" size={20} color={textSecondary} />
       </TouchableOpacity>
     </View>
   );
@@ -105,6 +153,7 @@ function ChannelPickerModal({
   onClose: () => void;
 }) {
   const { session, isLoggedIn } = useAuth();
+  const { bg, surface, text, textSecondary } = useTheme();
   const [search, setSearch] = useState('');
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(false);
@@ -124,18 +173,18 @@ function ChannelPickerModal({
     const favIds: string[] = userData?.favorite_channels ?? [];
     if (favIds.length === 0) { setChannels([]); setLoading(false); return; }
 
-    const [{ data: favUsers }, { data: audioFiles }] = await Promise.all([
-      supabase.from('users').select('*').in('user_id', favIds),
-      supabase.from('audio_files').select('*').in('uploaded_by', favIds),
-    ]);
+    const { data: favChannels } = await supabase
+      .from('channels')
+      .select('*')
+      .in('channel_id', favIds);
 
-    const mapped: Channel[] = (favUsers ?? []).map((u) => ({
-      id: u.user_id,
-      name: u.username,
-      genre: (audioFiles ?? []).find((f) => f.uploaded_by === u.user_id)?.genre ?? '',
-      listeners: u.num_of_followers ?? 0,
-      bio: u.bio ?? '',
-      imageUrl: u.profile_photo,
+    const mapped: Channel[] = (favChannels ?? []).map((ch) => ({
+      id: ch.channel_id,
+      name: ch.name,
+      genre: ch.genre ?? '',
+      listeners: 0,
+      bio: ch.bio ?? '',
+      imageUrl: ch.cover_photo ?? undefined,
       uploads: [],
     }));
 
@@ -149,7 +198,7 @@ function ChannelPickerModal({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView className="flex-1 bg-white" edges={['left', 'right']}>
+      <SafeAreaView className="flex-1" style={{ backgroundColor: bg }} edges={['left', 'right']}>
         <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
           <View className="px-4 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
@@ -159,14 +208,15 @@ function ChannelPickerModal({
         </SafeAreaView>
 
         <View className="px-4 py-3">
-          <View className="flex-row items-center bg-surface rounded-2xl px-4 py-3 gap-2">
-            <Ionicons name="search" size={18} color={Colors.textSecondary} />
+          <View className="flex-row items-center rounded-2xl px-4 py-3 gap-2" style={{ backgroundColor: surface }}>
+            <Ionicons name="search" size={18} color={textSecondary} />
             <TextInput
               value={search}
               onChangeText={setSearch}
               placeholder="Search channels..."
-              placeholderTextColor={Colors.textSecondary}
-              className="flex-1 text-[15px] text-text-primary"
+              placeholderTextColor={textSecondary}
+              className="flex-1 text-[15px]"
+              style={{ color: text }}
               autoCapitalize="none"
               autoCorrect={false}
             />
@@ -179,7 +229,7 @@ function ChannelPickerModal({
           </View>
         ) : filtered.length === 0 ? (
           <View className="flex-1 items-center justify-center px-8">
-            <Text className="text-text-secondary text-[15px] text-center">
+            <Text className="text-[15px] text-center" style={{ color: textSecondary }}>
               {isLoggedIn ? 'No favorite channels yet. Add some from the Browse tab.' : 'Log in to see your favorites.'}
             </Text>
           </View>
@@ -196,7 +246,7 @@ function ChannelPickerModal({
                 onPress={() => { onSelect(item); onClose(); }}
               >
                 <ChannelAvatar id={item.id} name={item.name} size="carousel" imageUrl={item.imageUrl} />
-                <Text className="text-[12px] text-text-secondary mt-2 text-center" numberOfLines={2}>
+                <Text className="text-[12px] mt-2 text-center" style={{ color: textSecondary }} numberOfLines={2}>
                   {item.name}
                 </Text>
               </TouchableOpacity>
@@ -221,15 +271,32 @@ function ChannelPickerModal({
 
 export default function AlarmSheet({ visible, onClose, onSave, preselectedChannel }: Props) {
   const { timeFormat } = useAuth();
+  const { bg, surface, text, textSecondary } = useTheme();
   const HOURS = timeFormat === 'military' ? HOURS_24 : HOURS_12;
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
 
   useEffect(() => {
     if (visible && preselectedChannel) setSelectedChannel(preselectedChannel);
   }, [visible, preselectedChannel]);
-  const [hour, setHour] = useState(timeFormat === 'military' ? '07' : '07');
-  const [minute, setMinute] = useState('00');
-  const [ampm, setAmpm] = useState<'AM' | 'PM'>('AM');
+
+  useEffect(() => {
+    if (visible) {
+      const h = new Date().getHours();
+      const m = new Date().getMinutes();
+      setHour(timeFormat === 'military' ? String(h).padStart(2, '0') : (h % 12 === 0 ? '12' : String(h % 12).padStart(2, '0')));
+      setMinute(String(m).padStart(2, '0'));
+      setAmpm(h < 12 ? 'AM' : 'PM');
+    }
+  }, [visible]);
+  const nowHour = new Date().getHours();
+  const nowMinute = new Date().getMinutes();
+  const defaultAmpm: 'AM' | 'PM' = nowHour < 12 ? 'AM' : 'PM';
+  const defaultHour12 = nowHour % 12 === 0 ? '12' : String(nowHour % 12).padStart(2, '0');
+  const defaultHour24 = String(nowHour).padStart(2, '0');
+
+  const [hour, setHour] = useState(timeFormat === 'military' ? defaultHour24 : defaultHour12);
+  const [minute, setMinute] = useState(String(nowMinute).padStart(2, '0'));
+  const [ampm, setAmpm] = useState<'AM' | 'PM'>(defaultAmpm);
   const [repeatDays, setRepeatDays] = useState<number[]>([]);
   const [pickerVisible, setPickerVisible] = useState(false);
 
@@ -241,21 +308,13 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
     );
   };
 
-  const adjustHour = (delta: number) => {
-    const idx = HOURS.indexOf(hour);
-    setHour(HOURS[(idx + delta + HOURS.length) % HOURS.length]);
-  };
-
-  const adjustMinute = (delta: number) => {
-    const idx = MINUTES.indexOf(minute);
-    setMinute(MINUTES[(idx + delta + MINUTES.length) % MINUTES.length]);
-  };
-
   const reset = () => {
+    const h = new Date().getHours();
+    const m = new Date().getMinutes();
     setSelectedChannel(null);
-    setHour('07');
-    setMinute('00');
-    setAmpm('AM');
+    setHour(timeFormat === 'military' ? String(h).padStart(2, '0') : (h % 12 === 0 ? '12' : String(h % 12).padStart(2, '0')));
+    setMinute(String(m).padStart(2, '0'));
+    setAmpm(h < 12 ? 'AM' : 'PM');
     setRepeatDays([]);
   };
 
@@ -267,7 +326,8 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
       h = parseInt(hour);
       resolvedAmpm = h >= 12 ? 'PM' : 'AM';
     } else {
-      h = parseInt(hour) + (ampm === 'PM' && parseInt(hour) !== 12 ? 12 : 0);
+      const raw = parseInt(hour);
+      h = ampm === 'AM' ? (raw === 12 ? 0 : raw) : (raw === 12 ? 12 : raw + 12);
       resolvedAmpm = ampm;
     }
     onSave({
@@ -290,7 +350,7 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView className="flex-1 bg-white" edges={['left', 'right', 'bottom']}>
+      <SafeAreaView className="flex-1" style={{ backgroundColor: bg }} edges={['left', 'right', 'bottom']}>
         <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
@@ -300,7 +360,7 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
         </SafeAreaView>
 
         <ScrollView className="flex-1 px-6 pt-6">
-          <Text className="text-[12px] font-semibold text-text-secondary tracking-wider mb-2">
+          <Text className="text-[12px] font-semibold tracking-wider mb-2" style={{ color: textSecondary }}>
             CHANNEL
           </Text>
 
@@ -324,8 +384,8 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
               />
             ) : (
               <>
-                <Ionicons name="add-circle-outline" size={28} color={Colors.textSecondary} />
-                <Text className="text-text-secondary text-[13px] mt-2 text-center px-2" numberOfLines={2}>
+                <Ionicons name="add-circle-outline" size={28} color={textSecondary} />
+                <Text className="text-[13px] mt-2 text-center px-2" style={{ color: textSecondary }} numberOfLines={2}>
                   {selectedChannel ? selectedChannel.name : 'Pick a channel'}
                 </Text>
               </>
@@ -333,18 +393,18 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
           </TouchableOpacity>
 
           {selectedChannel && (
-            <Text className="text-center text-[14px] font-medium text-text-primary mt-2">
+            <Text className="text-center text-[14px] font-medium mt-2" style={{ color: text }}>
               {selectedChannel.name}
             </Text>
           )}
 
-          <Text className="text-[12px] font-semibold text-text-secondary tracking-wider mt-6 mb-2">
+          <Text className="text-[12px] font-semibold tracking-wider mt-6 mb-2" style={{ color: textSecondary }}>
             WAKE TIME
           </Text>
           <View className="flex-row items-center justify-center gap-3">
-            <TimeScroller items={HOURS} selected={hour} onChange={setHour} onAdjust={adjustHour} />
-            <Text className="text-[40px] font-bold text-text-primary mb-2">:</Text>
-            <TimeScroller items={MINUTES} selected={minute} onChange={setMinute} onAdjust={adjustMinute} />
+            <TimeScroller items={HOURS} selected={hour} onChange={setHour} />
+            <Text style={{ fontSize: 40, fontWeight: 'bold', color: text, marginBottom: 8 }}>:</Text>
+            <TimeScroller items={MINUTES} selected={minute} onChange={setMinute} />
 
             {timeFormat !== 'military' && (
               <View className="items-center gap-2 ml-2">
@@ -353,11 +413,11 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
                     key={period}
                     onPress={() => setAmpm(period)}
                     className="px-3 py-2 rounded-xl"
-                    style={{ backgroundColor: ampm === period ? Colors.primaryLight : Colors.surface }}
+                    style={{ backgroundColor: ampm === period ? Colors.primaryLight : surface }}
                   >
                     <Text
                       className="font-semibold text-[15px]"
-                      style={{ color: ampm === period ? Colors.textPrimary : Colors.textSecondary }}
+                      style={{ color: ampm === period ? Colors.textPrimary : textSecondary }}
                     >
                       {period}
                     </Text>
@@ -367,7 +427,7 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
             )}
           </View>
 
-          <Text className="text-[12px] font-semibold text-text-secondary tracking-wider mt-6 mb-3">
+          <Text className="text-[12px] font-semibold tracking-wider mt-6 mb-3" style={{ color: textSecondary }}>
             REPEAT
           </Text>
           <View className="flex-row gap-2 justify-center">
@@ -395,21 +455,22 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
           </View>
         </ScrollView>
 
-        <View className="flex-row gap-3 px-6 py-4 border-t border-gray-100">
+        <View className="flex-row gap-3 px-6 py-4" style={{ borderTopWidth: 1, borderTopColor: surface }}>
           <TouchableOpacity
             onPress={handleClose}
-            className="flex-1 rounded-full py-3 items-center bg-surface"
+            className="flex-1 rounded-full py-3 items-center"
+            style={{ backgroundColor: surface }}
           >
-            <Text className="font-semibold text-[15px] text-text-primary">Cancel</Text>
+            <Text className="font-semibold text-[15px]" style={{ color: text }}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleSave}
             className="flex-1 rounded-full py-3 items-center"
-            style={{ backgroundColor: isComplete ? Colors.primary : Colors.surface }}
+            style={{ backgroundColor: isComplete ? Colors.primary : surface }}
           >
             <Text
               className="font-bold text-[15px]"
-              style={{ color: isComplete ? Colors.textPrimary : Colors.textSecondary }}
+              style={{ color: isComplete ? Colors.textPrimary : textSecondary }}
             >
               Save Alarm
             </Text>

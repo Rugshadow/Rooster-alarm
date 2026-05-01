@@ -16,22 +16,25 @@ export function useAlarms() {
   }, [isLoggedIn, session]);
 
   const fetchAlarms = async () => {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession) return;
     const { data } = await supabase
       .from('users')
       .select('set_alarms')
-      .eq('user_id', session!.user.id)
+      .eq('user_id', currentSession.user.id)
       .single();
     const raw = (data?.set_alarms as Record<string, SetAlarm> | null) ?? {};
     setAlarms(Object.values(raw));
   };
 
   const persistAlarms = async (updated: SetAlarm[]) => {
-    if (!session) return;
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession) return;
     const asObject = Object.fromEntries(updated.map((a) => [a.id, a]));
     await supabase
       .from('users')
       .update({ set_alarms: asObject } as any)
-      .eq('user_id', session.user.id);
+      .eq('user_id', currentSession.user.id);
   };
 
   const addAlarm = async (data: AlarmData) => {
@@ -66,5 +69,5 @@ export function useAlarms() {
     ]);
   };
 
-  return { alarms, addAlarm, removeAlarm };
+  return { alarms, addAlarm, removeAlarm, refetch: fetchAlarms };
 }

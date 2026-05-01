@@ -27,7 +27,7 @@ type Upload = {
 
 export default function UploadsScreen() {
   const { isLoggedIn, session } = useAuth();
-  const { bg } = useTheme();
+  const { bg, text, textSecondary } = useTheme();
   const router = useRouter();
   const [recordVisible, setRecordVisible] = useState(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -254,7 +254,7 @@ export default function UploadsScreen() {
   if (!isLoggedIn) {
     return (
       <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: bg }}>
-        <Text style={{ fontSize: 64 }}>🎙️</Text>
+        <Ionicons name="mic" size={64} color="#DFFF00" />
         <Text className="text-[22px] font-bold text-text-primary mt-4 mb-2">Become a Creator</Text>
         <Text className="text-text-secondary text-[15px] text-center mb-8">
           Upload audio clips and let listeners wake up to your voice every morning
@@ -283,8 +283,8 @@ export default function UploadsScreen() {
       <>
         <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: bg }}>
           <Ionicons name="radio-outline" size={64} color={Colors.primary} />
-          <Text className="text-[20px] font-bold text-text-primary mt-4 mb-2 text-center">No channels yet</Text>
-          <Text className="text-text-secondary text-[15px] text-center mb-8">
+          <Text className="text-[20px] font-bold mt-4 mb-2 text-center" style={{ color: text }}>No channels yet</Text>
+          <Text className="text-[15px] text-center mb-8" style={{ color: textSecondary }}>
             Create a channel to start uploading content for your listeners.
           </Text>
           <TouchableOpacity

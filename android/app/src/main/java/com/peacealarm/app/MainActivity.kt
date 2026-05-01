@@ -1,9 +1,12 @@
 package com.peacealarm.app
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 
 import com.facebook.react.ReactActivity
+import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
@@ -12,11 +15,33 @@ import expo.modules.ReactActivityDelegateWrapper
 
 class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
-    // Set the theme to AppTheme BEFORE onCreate to support
-    // coloring the background, status bar, and navigation bar.
-    // This is required for expo-splash-screen.
-    setTheme(R.style.AppTheme);
+    setTheme(R.style.AppTheme)
+    val hasExtra = intent?.hasExtra("alarmChannelId") == true
+    val prefChannelId = getSharedPreferences("peace_alarm_prefs", MODE_PRIVATE).getString("alarm_channel_id", null)
+    android.util.Log.d("PeaceAlarm", "MainActivity.onCreate hasExtra=$hasExtra prefChannelId=$prefChannelId")
+    val hasAlarm = hasExtra || prefChannelId != null
+    if (hasAlarm) {
+      android.util.Log.d("PeaceAlarm", "MainActivity.onCreate: calling showOnLockScreen()")
+      showOnLockScreen()
+    } else {
+      android.util.Log.d("PeaceAlarm", "MainActivity.onCreate: no alarm, skipping showOnLockScreen()")
+    }
     super.onCreate(null)
+  }
+
+  private fun showOnLockScreen() {
+    android.util.Log.d("PeaceAlarm", "MainActivity.showOnLockScreen() called, SDK=${Build.VERSION.SDK_INT}")
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+      setShowWhenLocked(true)
+      setTurnScreenOn(true)
+    }
+    @Suppress("DEPRECATION")
+    window.addFlags(
+      WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+      WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+      WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+    )
+    android.util.Log.d("PeaceAlarm", "MainActivity.showOnLockScreen() done")
   }
 
   /**
@@ -24,6 +49,21 @@ class MainActivity : ReactActivity() {
    * rendering of the component.
    */
   override fun getMainComponentName(): String = "main"
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    val hasAlarm = intent.hasExtra("alarmChannelId") ||
+      getSharedPreferences("peace_alarm_prefs", MODE_PRIVATE).getString("alarm_channel_id", null) != null
+    if (hasAlarm) showOnLockScreen()
+    try {
+      reactInstanceManager?.currentReactContext
+        ?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+        ?.emit("PeaceAlarmFired", null)
+    } catch (e: Exception) {
+      android.util.Log.e("PeaceAlarm", "onNewIntent: could not emit PeaceAlarmFired: ${e.message}")
+    }
+  }
 
   /**
    * Returns the instance of the [ReactActivityDelegate]. We use [DefaultReactActivityDelegate]

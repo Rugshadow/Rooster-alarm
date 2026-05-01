@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/colors';
@@ -22,6 +23,17 @@ export default function FavoritesScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('channels');
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const player = useAudioPlayer(playingUrl ? { uri: playingUrl } : null);
+  const playerStatus = useAudioPlayerStatus(player);
+
+  useEffect(() => {
+    if (playingUrl) player.play();
+  }, [playingUrl]);
+
+  useEffect(() => {
+    if (playerStatus.didJustFinish) { setPlayingId(null); setPlayingUrl(null); }
+  }, [playerStatus.didJustFinish]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [clips, setClips] = useState<FavoriteClip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -223,7 +235,16 @@ export default function FavoritesScreen() {
                 isPlaying={playingId === item.id}
                 isFavorited
                 imageUrl={item.imageUrl}
-                onPress={() => setPlayingId(playingId === item.id ? null : item.id)}
+                onPress={() => {
+                  if (playingId === item.id) {
+                    player.pause();
+                    setPlayingId(null);
+                    setPlayingUrl(null);
+                  } else {
+                    setPlayingId(item.id);
+                    setPlayingUrl(item.audioUrl ?? null);
+                  }
+                }}
                 onFavorite={() => handleUnfavoriteClip(item.id)}
               />
             )}

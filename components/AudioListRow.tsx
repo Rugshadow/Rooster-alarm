@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import ChannelAvatar from './ChannelAvatar';
+import { useTheme } from '../hooks/useTheme';
 
 type Props = {
   id: string;
@@ -41,12 +42,13 @@ export default function AudioListRow({
   onFavorite,
   onDelete,
 }: Props) {
+  const { bg, surface, text, textSecondary } = useTheme();
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="flex-row items-center py-3 px-4 bg-white border-b border-gray-100">
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={{ backgroundColor: bg, borderBottomWidth: 1, borderBottomColor: surface }} className="flex-row items-center py-3 px-4">
       <View style={{ width: 50, height: 50 }} className="items-center justify-center mr-3">
         {isScheduled ? (
-          <View style={{ width: 50, height: 50, borderRadius: 10 }} className="bg-surface items-center justify-center">
-            <Ionicons name="moon" size={24} color={Colors.textSecondary} />
+          <View style={{ width: 50, height: 50, borderRadius: 10, backgroundColor: surface }} className="items-center justify-center">
+            <Ionicons name="moon" size={24} color={textSecondary} />
           </View>
         ) : imageUrl ? (
           <Image source={{ uri: imageUrl }} style={{ width: 50, height: 50, borderRadius: 0 }} resizeMode="cover" />
@@ -62,16 +64,16 @@ export default function AudioListRow({
 
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
-          <Text className="text-text-primary font-medium text-[15px]" numberOfLines={1}>
+          <Text style={{ color: text }} className="font-medium text-[15px]" numberOfLines={1}>
             {title}
           </Text>
           {isScheduled && (
-            <View className="bg-surface rounded-full px-2 py-0.5">
-              <Text className="text-text-secondary text-[11px]">Scheduled</Text>
+            <View style={{ backgroundColor: surface }} className="rounded-full px-2 py-0.5">
+              <Text style={{ color: textSecondary }} className="text-[11px]">Scheduled</Text>
             </View>
           )}
         </View>
-        <Text className="text-text-secondary text-[13px] mt-0.5">
+        <Text style={{ color: textSecondary }} className="text-[13px] mt-0.5">
           {date} · {formatDuration(duration)}
         </Text>
       </View>

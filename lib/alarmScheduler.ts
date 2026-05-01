@@ -1,71 +1,65 @@
-import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
+import notifee, { AndroidImportance } from '@notifee/react-native';
 import type { AlarmData } from '../components/AlarmSheet';
+
+const { AlarmClock } = NativeModules;
 
 export async function setupNotificationChannel() {
   if (Platform.OS !== 'android') return;
-  await Notifications.setNotificationChannelAsync('alarms', {
-    name: 'Alarms',
-    importance: Notifications.AndroidImportance.MAX,
-    sound: 'default',
-    vibrationPattern: [0, 500, 500, 500],
-    enableVibrate: true,
-    showBadge: false,
+  await notifee.deleteChannel('alarms').catch(() => {});
+  await notifee.createChannel({
+    id: 'alarm_clock',
+    name: 'Alarm Clock',
+    importance: AndroidImportance.HIGH,
+    sound: 'alarm',
+    vibration: true,
+    vibrationPattern: [500, 500],
+    bypassDnd: true,
   });
 }
 
-// Converts stored alarm.hour + alarm.ampm to a 24h integer
-function to24h(hour: number, ampm: 'AM' | 'PM'): number {
-  if (ampm === 'AM') return hour === 12 ? 0 : hour;
-  return hour === 12 ? 12 : hour > 12 ? hour : hour + 12;
+function nextOccurrence(dayOfWeek: number, hour24: number, minute: number): Date {
+  const now = new Date();
+  const target = new Date();
+  target.setHours(hour24, minute, 0, 0);
+  const daysUntil = (dayOfWeek - now.getDay() + 7) % 7;
+  target.setDate(target.getDate() + (daysUntil === 0 && target <= now ? 7 : daysUntil));
+  return target;
 }
 
 export async function scheduleAlarmNotifications(
   alarm: AlarmData & { id: string }
 ): Promise<string[]> {
-  const ids: string[] = [];
-  const hour24 = to24h(alarm.hour, alarm.ampm);
-  const { minute } = alarm;
+  console.log('[alarm] AlarmClock module:', AlarmClock ? 'AVAILABLE' : 'MISSING');
+  if (Platform.OS !== 'android' || !AlarmClock) {
+    console.warn('[alarm] AlarmClock native module not available');
+    return [];
+  }
 
-  const content: Notifications.NotificationContentInput = {
-    title: `⏰ ${alarm.channelName}`,
-    body: 'Time to wake up! Tap to play.',
-    data: {
-      alarmId: alarm.id,
-      channelId: alarm.channelId,
-      channelName: alarm.channelName,
-      channelImageUrl: alarm.channelImageUrl ?? null,
-    },
-    sound: 'default',
+  const ids: string[] = [];
+  const hour24 = alarm.hour; // already 24-hour from AlarmSheet.handleSave
+  const data = {
+    channelId: alarm.channelId,
+    channelName: alarm.channelName,
+    channelImageUrl: alarm.channelImageUrl ?? '',
   };
 
   if (alarm.repeatDays.length === 0) {
-    // One-time: next occurrence of this time
     const now = new Date();
     const target = new Date();
-    target.setHours(hour24, minute, 0, 0);
+    target.setHours(hour24, alarm.minute, 0, 0);
     if (target <= now) target.setDate(target.getDate() + 1);
 
-    const id = await Notifications.scheduleNotificationAsync({
-      content,
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: target,
-      },
-    });
+    console.log('[alarm] scheduling via setAlarmClock for:', target.toISOString());
+    const id = await AlarmClock.scheduleAlarm(alarm.id, target.getTime(), data);
+    console.log('[alarm] scheduled id:', id);
     ids.push(id);
   } else {
-    // Weekly repeating: one notification per selected weekday
     for (const day of alarm.repeatDays) {
-      const id = await Notifications.scheduleNotificationAsync({
-        content,
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-          weekday: day + 1, // expo: 1=Sun…7=Sat; JS: 0=Sun…6=Sat
-          hour: hour24,
-          minute,
-        },
-      });
+      const target = nextOccurrence(day, hour24, alarm.minute);
+      const alarmId = `${alarm.id}_${day}`;
+      console.log('[alarm] scheduling repeat day', day, 'for:', target.toISOString());
+      const id = await AlarmClock.scheduleAlarm(alarmId, target.getTime(), data);
       ids.push(id);
     }
   }
@@ -74,9 +68,8 @@ export async function scheduleAlarmNotifications(
 }
 
 export async function cancelAlarmNotifications(notificationIds: string[]) {
+  if (!AlarmClock) return;
   await Promise.all(
-    notificationIds.map((id) =>
-      Notifications.cancelScheduledNotificationAsync(id).catch(() => {})
-    )
+    notificationIds.map((id) => AlarmClock.cancelAlarm(id).catch(() => {}))
   );
 }

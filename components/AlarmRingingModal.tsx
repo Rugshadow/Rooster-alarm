@@ -1,14 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Modal, TouchableOpacity, Image, Vibration } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Image, Vibration, NativeModules } from 'react-native';
+
+const { IntentData } = NativeModules;
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAudioPlayer } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { supabase } from '../lib/supabase';
-import { registerAudioStop } from '../lib/audioRegistry';
 
-const FALLBACK_SOUND = require('../assets/alarm.wav');
-// Vibration pattern: buzz 500ms, pause 250ms, repeat
 const VIBRATION_PATTERN = [0, 500, 250];
 
 type Props = {
@@ -20,16 +18,8 @@ type Props = {
 };
 
 export default function AlarmRingingModal({ visible, channelId, channelName, channelImageUrl, onDismiss }: Props) {
-  const player = useAudioPlayer(null);
   const [usingFallback, setUsingFallback] = useState(false);
   const startedRef = useRef(false);
-
-  useEffect(() => {
-    return registerAudioStop(() => {
-      Vibration.cancel();
-      player.pause();
-    });
-  }, [player]);
 
   useEffect(() => {
     if (visible && !startedRef.current) {
@@ -43,28 +33,35 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
   }, [visible]);
 
   const startAlarm = async () => {
+    console.log('[AlarmModal] startAlarm called, channelId:', channelId);
+    console.log('[AlarmModal] IntentData available:', !!IntentData);
+    console.log('[AlarmModal] playAlarmUrl available:', !!IntentData?.playAlarmUrl);
     Vibration.vibrate(VIBRATION_PATTERN, true);
+    console.log('[AlarmModal] vibration started');
     try {
+      console.log('[AlarmModal] fetching audio URL...');
       const audioUrl = await fetchLatestAudioUrl(channelId);
-      player.replace({ uri: audioUrl });
-      player.loop = true;
-      player.play();
+      console.log('[AlarmModal] fetched audio URL:', audioUrl);
+      console.log('[AlarmModal] calling IntentData.playAlarmUrl...');
+      await IntentData.playAlarmUrl(audioUrl);
+      console.log('[AlarmModal] playAlarmUrl resolved');
       setUsingFallback(false);
-    } catch {
-      playFallback();
+    } catch (e) {
+      console.warn('[AlarmModal] error in startAlarm:', String(e));
+      try {
+        console.log('[AlarmModal] trying fallback...');
+        await IntentData?.playAlarmFallback?.();
+        console.log('[AlarmModal] fallback resolved');
+      } catch (e2) {
+        console.error('[AlarmModal] fallback also failed:', String(e2));
+      }
+      setUsingFallback(true);
     }
-  };
-
-  const playFallback = () => {
-    setUsingFallback(true);
-    player.replace(FALLBACK_SOUND);
-    player.loop = true;
-    player.play();
   };
 
   const stopAlarm = () => {
     Vibration.cancel();
-    player.pause();
+    IntentData?.stopAlarmService?.();
   };
 
   const handleDismiss = () => {
@@ -120,21 +117,13 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
 }
 
 async function fetchLatestAudioUrl(channelId: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-  try {
-    const { data, error } = await supabase
-      .from('audio_files')
-      .select('audio_file')
-      .eq('channel_id', channelId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    clearTimeout(timeout);
-    if (error || !data?.audio_file) throw new Error('no audio');
-    return data.audio_file as string;
-  } catch {
-    clearTimeout(timeout);
-    throw new Error('fetch failed');
-  }
+  const { data, error } = await supabase
+    .from('audio_files')
+    .select('audio_file')
+    .eq('channel_id', channelId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+  if (error || !data?.audio_file) throw new Error('no audio');
+  return data.audio_file as string;
 }

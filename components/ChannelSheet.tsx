@@ -5,6 +5,7 @@ import {
   Modal,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -88,8 +89,12 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
     onClose();
   };
 
+  const showLoginAlert = () => {
+    Alert.alert('Login Required', 'Log in or create an account to set an alarm or save a favorite.');
+  };
+
   const toggleFavoriteClip = async (clipId: string) => {
-    if (!isLoggedIn || !session) return;
+    if (!isLoggedIn || !session) { Alert.alert('Login Required', 'You must be logged in to save a favorite.'); return; }
     const { data } = await supabase
       .from('users')
       .select('favorite_samples')
@@ -121,27 +126,26 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
 
             <View className="flex-row gap-3 mt-6 w-full">
               <TouchableOpacity
-                onPress={() => onSetAlarm(channel)}
+                onPress={isLoggedIn ? () => onSetAlarm(channel) : showLoginAlert}
                 className="flex-1 rounded-full py-3 items-center"
-                style={{ backgroundColor: Colors.primary }}
+                style={{ backgroundColor: Colors.primary, opacity: isLoggedIn ? 1 : 0.4 }}
               >
                 <Text className="font-bold text-[15px] text-text-primary">Set as Alarm</Text>
               </TouchableOpacity>
 
-              {isLoggedIn && (
-                <TouchableOpacity
-                  onPress={toggleFavorite}
-                  className="flex-1 rounded-full py-3 items-center border"
-                  style={{
-                    borderColor: Colors.primary,
-                    backgroundColor: isFavorited ? Colors.primary : 'transparent',
-                  }}
-                >
-                  <Text className="font-medium text-[15px]" style={{ color: isFavorited ? Colors.textPrimary : text }}>
-                    {isFavorited ? '★ Favorite' : '☆ Favorite'}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                onPress={isLoggedIn ? toggleFavorite : showLoginAlert}
+                className="flex-1 rounded-full py-3 items-center border"
+                style={{
+                  borderColor: Colors.primary,
+                  backgroundColor: isFavorited ? Colors.primary : 'transparent',
+                  opacity: isLoggedIn ? 1 : 0.4,
+                }}
+              >
+                <Text className="font-medium text-[15px]" style={{ color: isFavorited ? Colors.textPrimary : text }}>
+                  {isFavorited ? '★ Favorite' : '☆ Favorite'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, Image, FlatList, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
@@ -10,10 +11,12 @@ import { useAlarms } from '../../hooks/useAlarms';
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function ScheduleScreen() {
-  const { timeFormat } = useAuth();
-  const { bg } = useTheme();
-  const { alarms, addAlarm, removeAlarm } = useAlarms();
+  const { timeFormat, isLoggedIn } = useAuth();
+  const { bg, text, textSecondary } = useTheme();
+  const { alarms, addAlarm, removeAlarm, refetch } = useAlarms();
   const [sheetVisible, setSheetVisible] = useState(false);
+
+  useFocusEffect(useCallback(() => { refetch(); }, []));
 
   const formatTime = (alarm: SetAlarm) => {
     const m = String(alarm.minute).padStart(2, '0');
@@ -38,17 +41,21 @@ export default function ScheduleScreen() {
             style={{ width: 96, height: 96, borderRadius: 24, marginBottom: 24 }}
             resizeMode="cover"
           />
-          <Text className="text-[20px] font-bold text-text-primary mb-2">No alarms yet</Text>
-          <Text className="text-text-secondary text-[15px] text-center mb-8">
-            Set your first alarm to wake up to your favorite creator
+          <Text className="text-[20px] font-bold mb-2" style={{ color: text }}>No alarms yet</Text>
+          <Text className="text-[15px] text-center mb-8" style={{ color: textSecondary }}>
+            {isLoggedIn
+              ? 'Set your first alarm to wake up to your favorite creator'
+              : 'Log in or create an account to set an alarm.'}
           </Text>
-          <TouchableOpacity
-            onPress={() => setSheetVisible(true)}
-            className="rounded-full px-8 py-3.5"
-            style={{ backgroundColor: Colors.primary }}
-          >
-            <Text className="font-bold text-[16px] text-text-primary">+ Add Alarm</Text>
-          </TouchableOpacity>
+          {isLoggedIn && (
+            <TouchableOpacity
+              onPress={() => setSheetVisible(true)}
+              className="rounded-full px-8 py-3.5"
+              style={{ backgroundColor: Colors.primary }}
+            >
+              <Text className="font-bold text-[16px] text-text-primary">+ Add Alarm</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <AlarmSheet
           visible={sheetVisible}

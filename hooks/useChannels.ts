@@ -66,7 +66,7 @@ export function useChannels() {
       };
     });
 
-    setChannels(mapped);
+    setChannels(mapped.filter((ch) => ch.uploads.length > 0));
     setLoading(false);
   };
 
