@@ -67,10 +67,10 @@ export default function TabLayout() {
           return <Header routeName={route.name} />;
         },
         tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textSecondary,
+        tabBarInactiveTintColor: '#ffffff',
         tabBarStyle: {
-          backgroundColor: Colors.background,
-          borderTopColor: '#E5E5E5',
+          backgroundColor: '#3a3a3a',
+          borderTopColor: '#3a3a3a',
           paddingBottom: 12,
           height: 64,
         },
