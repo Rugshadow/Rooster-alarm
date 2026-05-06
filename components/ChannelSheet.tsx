@@ -16,6 +16,7 @@ import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../hooks/useTheme';
+import { saveFavoriteChannel, removeFavoriteChannel } from '../lib/cachedFavorites';
 
 export type Channel = {
   id: string;
@@ -102,6 +103,13 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
       : [...current, channel.id];
 
     await supabase.from('users').update({ favorite_channels: updated }).eq('user_id', session.user.id);
+
+    if (isFavorited) {
+      removeFavoriteChannel(channel.id).catch(() => {});
+    } else {
+      saveFavoriteChannel({ id: channel.id, name: channel.name, imageUrl: channel.imageUrl }).catch(() => {});
+    }
+
     setIsFavorited(!isFavorited);
   };
 
@@ -114,6 +122,30 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
 
   const showLoginAlert = () => {
     Alert.alert('Login Required', 'Log in or create an account to set an alarm or save a favorite.');
+  };
+
+  const handleListenFrom = async (clipIndex: number) => {
+    if (!session || !channel) return;
+    // uploads is newest-first; indices > clipIndex are older clips — mark them all as heard
+    const idsToHear = channel.uploads.slice(clipIndex + 1).map(c => c.id);
+    const updated = Array.from(new Set([...heardClips, ...idsToHear]));
+    setHeardClips(updated);
+    await supabase
+      .from('users')
+      .update({ heard_audio: updated } as any)
+      .eq('user_id', session.user.id);
+  };
+
+  const handleResetFrom = async (clipIndex: number) => {
+    if (!session || !channel) return;
+    // uploads is newest-first; indices 0..clipIndex are this clip + all newer ones
+    const idsToReset = new Set(channel.uploads.slice(0, clipIndex + 1).map(c => c.id));
+    const updated = heardClips.filter(id => !idsToReset.has(id));
+    setHeardClips(updated);
+    await supabase
+      .from('users')
+      .update({ heard_audio: updated } as any)
+      .eq('user_id', session.user.id);
   };
 
   const toggleFavoriteClip = async (clipId: string) => {
@@ -178,7 +210,7 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
             </Text>
           </View>
 
-          {channel.uploads.map((clip) => (
+          {channel.uploads.map((clip, index) => (
             <AudioListRow
               key={clip.id}
               id={clip.id}
@@ -193,6 +225,8 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
               imageUrl={clip.imageUrl}
               onPress={() => play(clip.id, clip.audioUrl)}
               onFavorite={() => toggleFavoriteClip(clip.id)}
+              onListenFrom={isLoggedIn ? () => handleListenFrom(index) : undefined}
+              onResetFrom={isLoggedIn ? () => handleResetFrom(index) : undefined}
             />
           ))}
 

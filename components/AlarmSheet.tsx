@@ -20,6 +20,8 @@ import type { Channel } from './ChannelSheet';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { supabase } from '../lib/supabase';
+import type { SetAlarm } from '../contexts/AlarmsContext';
+import { getCachedFavorites, resolveImageUri } from '../lib/cachedFavorites';
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const HOURS_12 = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
@@ -130,6 +132,8 @@ type Props = {
   onClose: () => void;
   onSave: (alarm: AlarmData) => void;
   preselectedChannel?: Channel;
+  initialAlarm?: SetAlarm;
+  onDelete?: () => void;
 };
 
 export type AlarmData = {
@@ -141,6 +145,7 @@ export type AlarmData = {
   ampm: 'AM' | 'PM';
   repeatDays: number[];
   notificationIds?: string[];
+  active?: boolean;
 };
 
 function ChannelPickerModal({
@@ -164,31 +169,47 @@ function ChannelPickerModal({
 
   const fetchFavoriteChannels = async () => {
     setLoading(true);
-    const { data: userData } = await supabase
-      .from('users')
-      .select('favorite_channels')
-      .eq('user_id', session!.user.id)
-      .single();
+    try {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('favorite_channels')
+        .eq('user_id', session!.user.id)
+        .single();
 
-    const favIds: string[] = userData?.favorite_channels ?? [];
-    if (favIds.length === 0) { setChannels([]); setLoading(false); return; }
+      const favIds: string[] = userData?.favorite_channels ?? [];
+      if (favIds.length === 0) { setChannels([]); setLoading(false); return; }
 
-    const { data: favChannels } = await supabase
-      .from('channels')
-      .select('*')
-      .in('channel_id', favIds);
+      const { data: favChannels, error } = await supabase
+        .from('channels')
+        .select('*')
+        .in('channel_id', favIds);
 
-    const mapped: Channel[] = (favChannels ?? []).map((ch) => ({
-      id: ch.channel_id,
-      name: ch.name,
-      genre: ch.genre ?? '',
-      listeners: 0,
-      bio: ch.bio ?? '',
-      imageUrl: ch.cover_photo ?? undefined,
-      uploads: [],
-    }));
+      if (error) throw error;
 
-    setChannels(mapped);
+      const mapped: Channel[] = (favChannels ?? []).map((ch) => ({
+        id: ch.channel_id,
+        name: ch.name,
+        genre: ch.genre ?? '',
+        listeners: 0,
+        bio: ch.bio ?? '',
+        imageUrl: ch.cover_photo ?? undefined,
+        uploads: [],
+      }));
+
+      setChannels(mapped);
+    } catch {
+      const cached = await getCachedFavorites();
+      const mapped: Channel[] = cached.map((ch) => ({
+        id: ch.id,
+        name: ch.name,
+        genre: '',
+        listeners: 0,
+        bio: '',
+        imageUrl: resolveImageUri(ch),
+        uploads: [],
+      }));
+      setChannels(mapped);
+    }
     setLoading(false);
   };
 
@@ -269,7 +290,7 @@ function ChannelPickerModal({
   );
 }
 
-export default function AlarmSheet({ visible, onClose, onSave, preselectedChannel }: Props) {
+export default function AlarmSheet({ visible, onClose, onSave, preselectedChannel, initialAlarm, onDelete }: Props) {
   const { timeFormat } = useAuth();
   const { bg, surface, text, textSecondary } = useTheme();
   const HOURS = timeFormat === 'military' ? HOURS_24 : HOURS_12;
@@ -281,11 +302,30 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
 
   useEffect(() => {
     if (visible) {
-      const h = new Date().getHours();
-      const m = new Date().getMinutes();
-      setHour(timeFormat === 'military' ? String(h).padStart(2, '0') : (h % 12 === 0 ? '12' : String(h % 12).padStart(2, '0')));
-      setMinute(String(m).padStart(2, '0'));
-      setAmpm(h < 12 ? 'AM' : 'PM');
+      if (initialAlarm) {
+        const displayHour = timeFormat === 'military'
+          ? String(initialAlarm.hour).padStart(2, '0')
+          : String(initialAlarm.hour % 12 || 12).padStart(2, '0');
+        setHour(displayHour);
+        setMinute(String(initialAlarm.minute).padStart(2, '0'));
+        setAmpm(initialAlarm.ampm);
+        setRepeatDays(initialAlarm.repeatDays);
+        setSelectedChannel({
+          id: initialAlarm.channelId,
+          name: initialAlarm.channelName,
+          imageUrl: initialAlarm.channelImageUrl,
+          genre: '',
+          listeners: 0,
+          bio: '',
+          uploads: [],
+        });
+      } else {
+        const h = new Date().getHours();
+        const m = new Date().getMinutes();
+        setHour(timeFormat === 'military' ? String(h).padStart(2, '0') : (h % 12 === 0 ? '12' : String(h % 12).padStart(2, '0')));
+        setMinute(String(m).padStart(2, '0'));
+        setAmpm(h < 12 ? 'AM' : 'PM');
+      }
     }
   }, [visible]);
   const nowHour = new Date().getHours();
@@ -354,7 +394,7 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
         <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
-              New Alarm
+              {initialAlarm ? 'Edit Alarm' : 'New Alarm'}
             </Text>
           </View>
         </SafeAreaView>
@@ -455,26 +495,37 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
           </View>
         </ScrollView>
 
-        <View className="flex-row gap-3 px-6 py-4" style={{ borderTopWidth: 1, borderTopColor: surface }}>
-          <TouchableOpacity
-            onPress={handleClose}
-            className="flex-1 rounded-full py-3 items-center"
-            style={{ backgroundColor: surface }}
-          >
-            <Text className="font-semibold text-[15px]" style={{ color: text }}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleSave}
-            className="flex-1 rounded-full py-3 items-center"
-            style={{ backgroundColor: isComplete ? Colors.primary : surface }}
-          >
-            <Text
-              className="font-bold text-[15px]"
-              style={{ color: isComplete ? Colors.textPrimary : textSecondary }}
+        <View className="px-6 py-4 gap-3" style={{ borderTopWidth: 1, borderTopColor: surface }}>
+          {onDelete && (
+            <TouchableOpacity
+              onPress={onDelete}
+              className="rounded-full py-3 items-center"
+              style={{ backgroundColor: Colors.destructive }}
             >
-              Save Alarm
-            </Text>
-          </TouchableOpacity>
+              <Text className="font-bold text-[15px] text-white">Delete Alarm</Text>
+            </TouchableOpacity>
+          )}
+          <View className="flex-row gap-3">
+            <TouchableOpacity
+              onPress={handleClose}
+              className="flex-1 rounded-full py-3 items-center"
+              style={{ backgroundColor: surface }}
+            >
+              <Text className="font-semibold text-[15px]" style={{ color: text }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSave}
+              className="flex-1 rounded-full py-3 items-center"
+              style={{ backgroundColor: isComplete ? Colors.primary : surface }}
+            >
+              <Text
+                className="font-bold text-[15px]"
+                style={{ color: isComplete ? Colors.textPrimary : textSecondary }}
+              >
+                Save Alarm
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
 

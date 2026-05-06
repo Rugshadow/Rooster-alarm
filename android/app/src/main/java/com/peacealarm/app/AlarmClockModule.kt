@@ -10,33 +10,24 @@ import com.facebook.react.bridge.*
 class AlarmClockModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
     override fun getName() = "AlarmClock"
 
-    private fun buildServicePendingIntent(context: Context, alarmId: String, intent: Intent): PendingIntent {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            PendingIntent.getForegroundService(
-                context, alarmId.hashCode(), intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-        } else {
-            PendingIntent.getService(
-                context, alarmId.hashCode(), intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-        }
-    }
-
     @ReactMethod
     fun scheduleAlarm(alarmId: String, timestamp: Double, data: ReadableMap, promise: Promise) {
         try {
             val context = reactApplicationContext
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-            val intent = Intent(context, AlarmService::class.java).apply {
+            // Target AlarmReceiver (BroadcastReceiver) so AlarmManager's alarm exemption applies.
+            // BroadcastReceivers triggered by setAlarmClock can start activities even when screen is ON.
+            val receiverIntent = Intent(context, AlarmReceiver::class.java).apply {
                 putExtra("alarmId", alarmId)
                 putExtra("channelId", data.getString("channelId") ?: "")
                 putExtra("channelName", data.getString("channelName") ?: "Alarm")
                 putExtra("channelImageUrl", data.getString("channelImageUrl") ?: "")
             }
-            val pendingIntent = buildServicePendingIntent(context, alarmId, intent)
+            val pendingIntent = PendingIntent.getBroadcast(
+                context, alarmId.hashCode(), receiverIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
 
             val showIntent = Intent(context, MainActivity::class.java)
             val showPi = PendingIntent.getActivity(
@@ -57,8 +48,11 @@ class AlarmClockModule(reactContext: ReactApplicationContext) : ReactContextBase
         try {
             val context = reactApplicationContext
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val intent = Intent(context, AlarmService::class.java)
-            val pendingIntent = buildServicePendingIntent(context, alarmId, intent)
+            val receiverIntent = Intent(context, AlarmReceiver::class.java)
+            val pendingIntent = PendingIntent.getBroadcast(
+                context, alarmId.hashCode(), receiverIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
             alarmManager.cancel(pendingIntent)
             promise.resolve(null)
         } catch (e: Exception) {

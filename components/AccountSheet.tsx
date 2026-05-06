@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,32 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  ScrollView,
+  NativeModules,
 } from 'react-native';
+
+const { IntentData } = NativeModules;
+
+const FALLBACK_SOUNDS = [
+  { id: 'alarm',         label: 'Classic'  },
+  { id: 'alarm_beep',    label: 'Beep'     },
+  { id: 'alarm_bells',   label: 'Battleship' },
+  { id: 'alarm_chime',   label: 'Chime'    },
+  { id: 'alarm_digital', label: 'Cricket'  },
+  { id: 'alarm_gentle',  label: 'Arcade'   },
+  { id: 'alarm_morning', label: 'Morning'  },
+  { id: 'alarm_radar',   label: 'Radar'    },
+  { id: 'alarm_ring',    label: 'Ring'     },
+  { id: 'alarm_soft',    label: 'Trill'    },
+];
+import Slider from '@react-native-community/slider';
+import { useAudioPlayer } from 'expo-audio';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
+import { useAlarmsContext } from '../contexts/AlarmsContext';
 import { supabase } from '../lib/supabase';
 
 type Props = {
@@ -20,15 +40,31 @@ type Props = {
 };
 
 export default function AccountSheet({ visible, onClose }: Props) {
-  const { signOut, username, session, timeFormat, setTimeFormat, colorScheme, setColorScheme } = useAuth();
+  const { signOut, username, session, timeFormat, setTimeFormat, colorScheme, setColorScheme, alarmVolume, setAlarmVolume } = useAuth();
   const { bg, surface, text, textSecondary } = useTheme();
+  const { alarms, clearAllAlarms } = useAlarmsContext();
+  const previewPlayer = useAudioPlayer(require('../assets/bell_chime.mp3'));
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sliderVolume, setSliderVolume] = useState(alarmVolume);
   const [uploadCount, setUploadCount] = useState(0);
   const [alarmCount, setAlarmCount] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
   const [deleting, setDeleting] = useState(false);
+  const [selectedFallback, setSelectedFallback] = useState('alarm');
+  const [previewingSound, setPreviewingSound] = useState<string | null>(null);
+  const [fallbackExpanded, setFallbackExpanded] = useState(false);
 
   useEffect(() => {
-    if (visible && session) fetchStats();
+    if (visible) {
+      setSliderVolume(alarmVolume);
+      if (session) fetchStats();
+      IntentData?.getFallbackSound?.().then((s: string) => setSelectedFallback(s)).catch(() => {});
+    } else {
+      IntentData?.stopFallbackPreview?.().catch(() => {});
+      setPreviewingSound(null);
+      setFallbackExpanded(false);
+    }
   }, [visible]);
 
   const fetchStats = async () => {
@@ -107,6 +143,25 @@ export default function AccountSheet({ visible, onClose }: Props) {
     }
   };
 
+  const handleDeleteAllAlarms = () => {
+    if (alarms.length === 0) {
+      Alert.alert('No Alarms', 'You have no alarms to delete.');
+      return;
+    }
+    Alert.alert(
+      'Delete All Alarms',
+      `This will delete all ${alarms.length} alarm${alarms.length !== 1 ? 's' : ''}. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: clearAllAlarms,
+        },
+      ]
+    );
+  };
+
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
@@ -116,6 +171,18 @@ export default function AccountSheet({ visible, onClose }: Props) {
         { text: 'Delete', style: 'destructive', onPress: performDeleteAccount },
       ]
     );
+  };
+
+  const handleSelectFallback = async (id: string) => {
+    setSelectedFallback(id);
+    setPreviewingSound(id);
+    if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+    await IntentData?.setFallbackSound?.(id).catch(() => {});
+    await IntentData?.previewFallbackSound?.(id).catch(() => {});
+    fallbackTimerRef.current = setTimeout(async () => {
+      await IntentData?.stopFallbackPreview?.().catch(() => {});
+      setPreviewingSound(null);
+    }, 3000);
   };
 
   return (
@@ -129,7 +196,7 @@ export default function AccountSheet({ visible, onClose }: Props) {
           </View>
         </SafeAreaView>
 
-        <View className="flex-1 px-4 pt-4">
+        <ScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
           <View className="flex-row mt-0 rounded-2xl overflow-hidden" style={{ backgroundColor: surface }}>
             {[
               { label: 'Uploads', value: uploadCount },
@@ -150,6 +217,31 @@ export default function AccountSheet({ visible, onClose }: Props) {
             SETTINGS
           </Text>
 
+          <View className="rounded-2xl px-4 pt-3 pb-2 mb-4" style={{ backgroundColor: surface }}>
+            <View className="flex-row justify-between items-center mb-1">
+              <Text className="text-[13px] font-medium" style={{ color: textSecondary }}>Alarm Volume</Text>
+              <Text className="text-[13px] font-semibold" style={{ color: text }}>{Math.round(sliderVolume * 100)}%</Text>
+            </View>
+            <Slider
+              minimumValue={0}
+              maximumValue={1}
+              value={sliderVolume}
+              onValueChange={setSliderVolume}
+              onSlidingComplete={(vol) => {
+                setAlarmVolume(vol);
+                if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+                previewPlayer.volume = vol;
+                previewPlayer.seekTo(0);
+                previewPlayer.play();
+                previewTimerRef.current = setTimeout(() => previewPlayer.pause(), 2000);
+              }}
+              minimumTrackTintColor={Colors.primary}
+              maximumTrackTintColor={textSecondary}
+              thumbTintColor={Colors.primary}
+              style={{ height: 36 }}
+            />
+          </View>
+
           <View className="rounded-2xl p-1 flex-row mb-4" style={{ backgroundColor: surface }}>
             {(['standard', 'military'] as const).map((fmt) => (
               <TouchableOpacity
@@ -168,7 +260,7 @@ export default function AccountSheet({ visible, onClose }: Props) {
                   className="font-medium text-[15px]"
                   style={{ color: timeFormat === fmt ? text : textSecondary }}
                 >
-                  {fmt === 'standard' ? 'Standard' : 'Military'}
+                  {fmt === 'standard' ? '12 Hour' : '24 Hour'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -198,12 +290,67 @@ export default function AccountSheet({ visible, onClose }: Props) {
             ))}
           </View>
 
+          <Text className="text-[12px] font-semibold tracking-wider mt-2 mb-1" style={{ color: textSecondary }}>
+            FALLBACK ALARM
+          </Text>
+          <Text className="text-[12px] mb-3" style={{ color: textSecondary }}>
+            Choose a sound that plays if internet connection is lost.
+          </Text>
+          <View className="rounded-2xl overflow-hidden mb-12" style={{ backgroundColor: surface }}>
+            {/* Selected row — always visible, toggles expand */}
+            <TouchableOpacity
+              onPress={() => setFallbackExpanded(e => !e)}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13 }}
+            >
+              <Ionicons name="radio-button-on" size={20} color={Colors.primary} style={{ marginRight: 12 }} />
+              <Text style={{ flex: 1, color: text, fontSize: 15 }}>
+                {FALLBACK_SOUNDS.find(s => s.id === selectedFallback)?.label ?? 'Classic'}
+              </Text>
+              <Ionicons name={fallbackExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={textSecondary} />
+            </TouchableOpacity>
+
+            {/* Expanded list */}
+            {fallbackExpanded && FALLBACK_SOUNDS.map((sound, i) => (
+              <TouchableOpacity
+                key={sound.id}
+                onPress={() => handleSelectFallback(sound.id)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 16,
+                  paddingVertical: 13,
+                  borderTopWidth: 1,
+                  borderTopColor: bg,
+                }}
+              >
+                <Ionicons
+                  name={selectedFallback === sound.id ? 'radio-button-on' : 'radio-button-off'}
+                  size={20}
+                  color={selectedFallback === sound.id ? Colors.primary : textSecondary}
+                  style={{ marginRight: 12 }}
+                />
+                <Text style={{ flex: 1, color: text, fontSize: 15 }}>{sound.label}</Text>
+                {previewingSound === sound.id && (
+                  <Ionicons name="volume-high-outline" size={18} color={Colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+
           <TouchableOpacity
             onPress={() => { signOut(); onClose(); }}
             className="rounded-full py-3.5 items-center mb-3"
             style={{ backgroundColor: surface }}
           >
             <Text className="font-semibold text-[15px]" style={{ color: text }}>Log Out</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleDeleteAllAlarms}
+            className="rounded-full py-3.5 items-center mb-3"
+            style={{ backgroundColor: colorScheme === 'dark' ? '#4A1010' : Colors.destructiveLight }}
+          >
+            <Text className="font-semibold text-[15px]" style={{ color: colorScheme === 'dark' ? '#FF6B6B' : Colors.destructive }}>Delete All Alarms</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -217,7 +364,8 @@ export default function AccountSheet({ visible, onClose }: Props) {
               : <Text className="font-semibold text-[15px]" style={{ color: colorScheme === 'dark' ? '#FF6B6B' : Colors.destructive }}>Delete Account</Text>
             }
           </TouchableOpacity>
-        </View>
+
+        </ScrollView>
 
         <View style={{ backgroundColor: Colors.primary }}>
           <TouchableOpacity

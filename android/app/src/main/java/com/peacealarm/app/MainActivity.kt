@@ -57,9 +57,11 @@ class MainActivity : ReactActivity() {
       getSharedPreferences("peace_alarm_prefs", MODE_PRIVATE).getString("alarm_channel_id", null) != null
     if (hasAlarm) showOnLockScreen()
     try {
-      reactInstanceManager?.currentReactContext
-        ?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+      val reactContext = (applicationContext as? MainApplication)
+        ?.reactNativeHost?.reactInstanceManager?.currentReactContext
+      reactContext?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
         ?.emit("PeaceAlarmFired", null)
+      android.util.Log.d("PeaceAlarm", "onNewIntent: emitted PeaceAlarmFired reactContext=${reactContext != null}")
     } catch (e: Exception) {
       android.util.Log.e("PeaceAlarm", "onNewIntent: could not emit PeaceAlarmFired: ${e.message}")
     }

@@ -2,6 +2,8 @@ package com.peacealarm.app
 
 import android.app.NotificationManager
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -10,6 +12,65 @@ import com.facebook.react.bridge.*
 
 class IntentModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
     override fun getName() = "IntentData"
+
+    private var previewPlayer: MediaPlayer? = null
+
+    private fun stopPreviewPlayer() {
+        previewPlayer?.apply {
+            try { if (isPlaying) stop() } catch (_: Exception) {}
+            release()
+        }
+        previewPlayer = null
+    }
+
+    @ReactMethod
+    fun getFallbackSound(promise: Promise) {
+        val name = reactApplicationContext
+            .getSharedPreferences("peace_alarm_prefs", android.content.Context.MODE_PRIVATE)
+            .getString("fallback_sound", "alarm") ?: "alarm"
+        promise.resolve(name)
+    }
+
+    @ReactMethod
+    fun setFallbackSound(name: String, promise: Promise) {
+        reactApplicationContext
+            .getSharedPreferences("peace_alarm_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().putString("fallback_sound", name).apply()
+        promise.resolve(null)
+    }
+
+    @ReactMethod
+    fun previewFallbackSound(name: String, promise: Promise) {
+        stopPreviewPlayer()
+        try {
+            val ctx = reactApplicationContext
+            val resId = ctx.resources.getIdentifier(name, "raw", ctx.packageName)
+            if (resId == 0) { promise.resolve(null); return }
+            val mp = MediaPlayer()
+            mp.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            val vol = AlarmSoundManager.alarmVolume
+            mp.setVolume(vol, vol)
+            mp.setDataSource(ctx, Uri.parse("android.resource://${ctx.packageName}/$resId"))
+            mp.setOnCompletionListener { stopPreviewPlayer() }
+            mp.prepare()
+            mp.start()
+            previewPlayer = mp
+            promise.resolve(null)
+        } catch (e: Exception) {
+            promise.reject("ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun stopFallbackPreview(promise: Promise) {
+        stopPreviewPlayer()
+        promise.resolve(null)
+    }
 
     @ReactMethod
     fun isIgnoringBatteryOptimizations(promise: Promise) {
@@ -62,6 +123,16 @@ class IntentModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
     }
 
     @ReactMethod
+    fun isAlarmPlaying(promise: Promise) {
+        promise.resolve(AlarmSoundManager.isPlaying())
+    }
+
+    @ReactMethod
+    fun getAlarmPlaybackPosition(promise: Promise) {
+        promise.resolve(AlarmSoundManager.getCurrentPositionMs())
+    }
+
+    @ReactMethod
     fun playAlarmUrl(url: String, promise: Promise) {
         android.util.Log.d("PeaceAlarm", "IntentModule.playAlarmUrl called url=$url")
         Thread {
@@ -83,9 +154,12 @@ class IntentModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
     @ReactMethod
     fun playAlarmFallback(promise: Promise) {
         android.util.Log.d("PeaceAlarm", "IntentModule.playAlarmFallback called")
+        val soundName = reactApplicationContext
+            .getSharedPreferences("peace_alarm_prefs", android.content.Context.MODE_PRIVATE)
+            .getString("fallback_sound", "alarm") ?: "alarm"
         Thread {
             try {
-                AlarmSoundManager.playFallback(reactApplicationContext)
+                AlarmSoundManager.playFallback(reactApplicationContext, soundName)
             } catch (e: Exception) {
                 android.util.Log.e("PeaceAlarm", "IntentModule.playAlarmFallback exception: ${e.message}", e)
             }
@@ -144,7 +218,13 @@ class IntentModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
 
     private fun clearAlarmPrefs() {
         reactApplicationContext.getSharedPreferences("peace_alarm_prefs", android.content.Context.MODE_PRIVATE)
-            .edit().clear().apply()
+            .edit()
+            .remove("alarm_channel_id")
+            .remove("alarm_channel_name")
+            .remove("alarm_channel_image_url")
+            .apply()
+        // user_id and alarm_volume are intentionally kept — AlarmService needs them
+        // between alarms to pick the correct unheard clip and volume level.
     }
 
     @ReactMethod

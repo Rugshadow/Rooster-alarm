@@ -1,24 +1,15 @@
 package com.peacealarm.app
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.util.Log
-import android.widget.Toast
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        Log.d("PeaceAlarm", "AlarmReceiver.onReceive fired! intent=$intent")
-        try { Toast.makeText(context, "PeaceAlarm fired!", Toast.LENGTH_LONG).show() } catch (_: Exception) {}
+        Log.d("PeaceAlarm", "AlarmReceiver.onReceive fired!")
         try { onReceiveSafe(context, intent) } catch (e: Exception) {
             Log.e("PeaceAlarm", "AlarmReceiver crash: ${e.message}", e)
         }
@@ -26,67 +17,53 @@ class AlarmReceiver : BroadcastReceiver() {
 
     private fun onReceiveSafe(context: Context, intent: Intent) {
         val channelId = intent.getStringExtra("channelId") ?: run {
-            Log.e("PeaceAlarm", "No channelId in intent extras")
+            Log.e("PeaceAlarm", "AlarmReceiver: no channelId in extras")
             return
         }
         val channelName = intent.getStringExtra("channelName") ?: "Alarm"
         val channelImageUrl = intent.getStringExtra("channelImageUrl") ?: ""
         val alarmId = intent.getStringExtra("alarmId") ?: "0"
+        Log.d("PeaceAlarm", "AlarmReceiver: channelId=$channelId alarmId=$alarmId")
 
-        Log.d("PeaceAlarm", "onReceiveSafe: channelId=$channelId alarmId=$alarmId")
-
+        // Briefly acquire a wakelock so the device stays awake long enough for
+        // the service and activity to start. AlarmService acquires its own wakelock.
         val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         val wakeLock = pm.newWakeLock(
-            PowerManager.FULL_WAKE_LOCK or
-            PowerManager.ACQUIRE_CAUSES_WAKEUP or
-            PowerManager.ON_AFTER_RELEASE,
-            "PeaceAlarm::AlarmWakeLock"
+            PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
+            "PeaceAlarm::ReceiverWakeLock"
         )
-        wakeLock.acquire(30000L)
+        wakeLock.acquire(10000L)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val sound = Uri.parse("android.resource://${context.packageName}/raw/alarm")
-            val audioAttr = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-            val nc = NotificationChannel("peace_alarm_clock_v5", "Alarm Clock", NotificationManager.IMPORTANCE_HIGH).apply {
-                setBypassDnd(true)
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 500, 500, 500)
-                setSound(sound, audioAttr)
-                lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
-            }
-            context.getSystemService(NotificationManager::class.java).createNotificationChannel(nc)
+        // Start AlarmService — handles audio, foreground notification, and its own wakelock.
+        val serviceIntent = Intent(context, AlarmService::class.java).apply {
+            putExtra("alarmId", alarmId)
+            putExtra("channelId", channelId)
+            putExtra("channelName", channelName)
+            putExtra("channelImageUrl", channelImageUrl)
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(serviceIntent)
+        } else {
+            context.startService(serviceIntent)
+        }
+        Log.d("PeaceAlarm", "AlarmReceiver: startForegroundService OK")
 
-        val launchIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        // Start MainActivity directly. BroadcastReceivers triggered by AlarmManager.setAlarmClock()
+        // are exempt from background activity start restrictions even when the screen is ON,
+        // ensuring the alarm popup appears without requiring the user to tap a notification.
+        val activityIntent = Intent(context, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtra("alarmChannelId", channelId)
             putExtra("alarmChannelName", channelName)
             putExtra("alarmChannelImageUrl", channelImageUrl)
         }
-        val fullScreenPi = PendingIntent.getActivity(
-            context, alarmId.hashCode(), launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        try {
+            context.startActivity(activityIntent)
+            Log.d("PeaceAlarm", "AlarmReceiver: startActivity OK")
+        } catch (e: Exception) {
+            Log.e("PeaceAlarm", "AlarmReceiver: startActivity failed: ${e.message}")
+        }
 
-        val notification = NotificationCompat.Builder(context, "peace_alarm_clock_v5")
-            .setSmallIcon(R.drawable.notification_icon)
-            .setContentTitle("⏰ $channelName")
-            .setContentText("Time to wake up!")
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setFullScreenIntent(fullScreenPi, true)
-            .setContentIntent(fullScreenPi)
-            .setAutoCancel(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOngoing(true)
-            .build()
-
-        Log.d("PeaceAlarm", "Posting notification id=${alarmId.hashCode()}")
-        NotificationManagerCompat.from(context).notify(alarmId.hashCode(), notification)
-        Log.d("PeaceAlarm", "Notification posted OK")
         wakeLock.release()
     }
 }

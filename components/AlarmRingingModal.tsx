@@ -3,6 +3,8 @@ import {
   View, Text, Modal, TouchableOpacity, Image,
   Vibration, NativeModules, Animated, useWindowDimensions, StyleSheet,
 } from 'react-native';
+import * as NavigationBar from 'expo-navigation-bar';
+import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
@@ -10,10 +12,13 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 const { IntentData, AlarmClock } = NativeModules;
+
+// TODO: replace with your real Banner Ad Unit ID from the AdMob console
+const BANNER_AD_UNIT_ID = __DEV__ ? TestIds.BANNER : 'ca-app-pub-5233217461143034/6960004092';
 const VIBRATION_PATTERN = [0, 500, 250];
 const BAR_COUNT = 40;
 
-type AudioMeta = { audioUrl: string; duration: number; waveform: number[]; audioId: string; listeningOrder: 'newest' | 'oldest' };
+type AudioMeta = { audioUrl: string; duration: number; waveform: number[]; audioId: string; listeningOrder: 'newest' | 'oldest'; title: string };
 
 type Props = {
   visible: boolean;
@@ -29,6 +34,8 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
   const [usingFallback, setUsingFallback] = useState(false);
   const [meta, setMeta] = useState<AudioMeta | null>(null);
   const startedRef = useRef(false);
+  const dismissedRef = useRef(false);
+  const userDismissedRef = useRef(false);
   const playedAudioRef = useRef<{ audioId: string; listeningOrder: 'newest' | 'oldest' } | null>(null);
 
   const playheadAnim = useRef(new Animated.Value(0)).current;
@@ -37,9 +44,13 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
   useEffect(() => {
     if (visible && !startedRef.current) {
       startedRef.current = true;
+      dismissedRef.current = false;
+      userDismissedRef.current = false;
+      NavigationBar.setVisibilityAsync('hidden');
       launch();
     }
     if (!visible) {
+      dismissedRef.current = true;
       stopAlarm();
       stopPlayhead();
       startedRef.current = false;
@@ -49,29 +60,65 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
 
   const launch = async () => {
     Vibration.vibrate(VIBRATION_PATTERN, true);
+    console.log('[launch] channelId:', channelId, 'userId:', session?.user.id);
     try {
       const audioMeta = await fetchAudioMeta(channelId, session?.user.id);
+      if (dismissedRef.current) {
+        console.log('[launch] dismissed during fetch, aborting playback');
+        return;
+      }
+      console.log('[launch] fetchAudioMeta ok, audioUrl:', audioMeta.audioUrl);
       setMeta(audioMeta);
       playedAudioRef.current = { audioId: audioMeta.audioId, listeningOrder: audioMeta.listeningOrder };
-      await IntentData.playAlarmUrl(audioMeta.audioUrl);
-      startPlayhead(audioMeta.duration);
+      const alreadyPlaying = await IntentData.isAlarmPlaying?.() ?? false;
+      const startMs = alreadyPlaying ? (await IntentData.getAlarmPlaybackPosition?.() ?? 0) : 0;
+      console.log('[launch] alreadyPlaying:', alreadyPlaying, 'startMs:', startMs);
+      if (!alreadyPlaying) {
+        IntentData.playAlarmUrl(audioMeta.audioUrl).catch((e: any) => console.error('[launch] playAlarmUrl error:', e));
+      }
+      startPlayhead(audioMeta.duration, startMs);
       setUsingFallback(false);
-    } catch {
+    } catch (e) {
+      if (dismissedRef.current) return;
+      console.error('[launch] fetchAudioMeta threw:', e);
       try { await IntentData?.playAlarmFallback?.(); } catch {}
       setUsingFallback(true);
     }
   };
 
-  const startPlayhead = (durationSeconds: number) => {
-    playheadAnim.setValue(0);
-    playheadLoopRef.current = Animated.loop(
-      Animated.timing(playheadAnim, {
+  const startPlayhead = (durationSeconds: number, startMs: number = 0) => {
+    const totalMs = durationSeconds * 1000;
+    const clampedMs = Math.max(0, Math.min(startMs, totalMs));
+    const startFraction = clampedMs / totalMs;
+    const remainingMs = totalMs - clampedMs;
+
+    playheadLoopRef.current?.stop();
+    playheadAnim.setValue(startFraction);
+
+    const startLoop = () => {
+      const loop = Animated.loop(
+        Animated.timing(playheadAnim, { toValue: 1, duration: totalMs, useNativeDriver: true })
+      );
+      playheadLoopRef.current = loop;
+      loop.start();
+    };
+
+    if (clampedMs < 500) {
+      startLoop();
+    } else {
+      // Animate from current position to end, then loop from beginning
+      const firstPass = Animated.timing(playheadAnim, {
         toValue: 1,
-        duration: durationSeconds * 1000,
+        duration: remainingMs,
         useNativeDriver: true,
-      })
-    );
-    playheadLoopRef.current.start();
+      });
+      playheadLoopRef.current = firstPass as any;
+      firstPass.start(({ finished }) => {
+        if (!finished) return;
+        playheadAnim.setValue(0);
+        startLoop();
+      });
+    }
   };
 
   const stopPlayhead = () => {
@@ -80,14 +127,15 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
   };
 
   const stopAlarm = () => {
+    console.log('[stopAlarm] called from:', new Error().stack?.split('\n').slice(1, 4).join(' | '));
     Vibration.cancel();
     IntentData?.stopAlarmService?.();
   };
 
-  const handleRestart = async () => {
+  const handleRestart = () => {
     if (!meta) return;
     stopPlayhead();
-    try { await IntentData?.playAlarmUrl?.(meta.audioUrl); } catch {}
+    IntentData?.playAlarmUrl?.(meta.audioUrl)?.catch(() => {});
     startPlayhead(meta.duration);
   };
 
@@ -123,6 +171,11 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
   };
 
   const handleStop = () => {
+    if (!userDismissedRef.current) {
+      console.log('[handleStop] blocked phantom call from React internals');
+      return;
+    }
+    userDismissedRef.current = false;
     stopAlarm();
     stopPlayhead();
     const played = playedAudioRef.current;
@@ -138,11 +191,11 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
   const barMaxHeight = barAreaHeight / 2;
 
   return (
-    <Modal visible={visible} animationType="fade" presentationStyle="fullScreen">
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0a' }}>
+    <Modal visible={visible} animationType="none" presentationStyle="fullScreen">
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0a' }} edges={['top', 'left', 'right']}>
 
         {/* Square visualizer */}
-        <View style={{ width: vizSize, height: vizSize }}>
+        <View style={{ width: vizSize, height: vizSize, flexShrink: 1 }}>
           {channelImageUrl ? (
             <Image source={{ uri: channelImageUrl }} style={{ width: vizSize, height: vizSize }} resizeMode="cover" />
           ) : (
@@ -189,13 +242,14 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
         </View>
 
         {/* Channel info */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 }}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
           <Text style={{ color: '#888', fontSize: 11, letterSpacing: 2.5, marginBottom: 4 }}>
             {usingFallback ? 'ALARM' : 'NOW PLAYING'}
           </Text>
-          <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold' }} numberOfLines={1}>
-            {channelName}
-          </Text>
+          <MarqueeText
+            text={meta?.title ? `${channelName}, ${meta.title}` : channelName}
+            style={{ color: '#fff', fontSize: 22, fontWeight: 'bold' }}
+          />
           {usingFallback && (
             <Text style={{ color: '#666', fontSize: 13, marginTop: 4 }}>
               Playing offline — connect to Wi-Fi to hear your channel
@@ -204,7 +258,7 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
         </View>
 
         {/* Buttons */}
-        <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginTop: 16 }}>
+        <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginTop: 12, marginBottom: 12 }}>
           <TouchableOpacity
             onPress={handleRestart}
             style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#222', alignItems: 'center', justifyContent: 'center' }}
@@ -213,7 +267,7 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleSnooze}
+            onPress={() => { userDismissedRef.current = true; handleSnooze(); }}
             style={{ flex: 1, height: 56, borderRadius: 28, backgroundColor: '#222', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
           >
             <Ionicons name="moon" size={18} color="#fff" />
@@ -221,15 +275,66 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleStop}
+            onPress={() => { userDismissedRef.current = true; handleStop(); }}
             style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' }}
           >
             <Ionicons name="stop" size={22} color="#000" />
           </TouchableOpacity>
         </View>
 
+        {/* AdMob banner — pinned to bottom */}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 8 }}>
+          <BannerAd
+            unitId={BANNER_AD_UNIT_ID}
+            size={BannerAdSize.MEDIUM_RECTANGLE}
+            requestOptions={{ requestNonPersonalizedAdsOnly: false }}
+            onAdLoaded={() => console.log('[AdMob] banner loaded')}
+            onAdFailedToLoad={(e) => console.log('[AdMob] banner failed:', e)}
+          />
+        </View>
+
       </SafeAreaView>
     </Modal>
+  );
+}
+
+function MarqueeText({ text, style }: { text: string; style: object }) {
+  const animX = useRef(new Animated.Value(0)).current;
+  const containerW = useRef(0);
+  const contentW = useRef(0);
+  const loopRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  const startScroll = () => {
+    const overflow = contentW.current - containerW.current;
+    if (overflow <= 4) return;
+    loopRef.current?.stop();
+    animX.setValue(0);
+    loopRef.current = Animated.loop(
+      Animated.sequence([
+        Animated.delay(1200),
+        Animated.timing(animX, { toValue: -overflow, duration: overflow * 28, useNativeDriver: true }),
+        Animated.delay(800),
+        Animated.timing(animX, { toValue: 0, duration: 500, useNativeDriver: true }),
+      ])
+    );
+    loopRef.current.start();
+  };
+
+  useEffect(() => () => { loopRef.current?.stop(); }, []);
+
+  return (
+    <View
+      style={{ overflow: 'hidden', flexDirection: 'row' }}
+      onLayout={e => { containerW.current = e.nativeEvent.layout.width; startScroll(); }}
+    >
+      <Animated.Text
+        style={[style, { flexShrink: 0, transform: [{ translateX: animX }] }]}
+        numberOfLines={1}
+        onLayout={e => { contentW.current = e.nativeEvent.layout.width; startScroll(); }}
+      >
+        {text}
+      </Animated.Text>
+    </View>
   );
 }
 
@@ -239,23 +344,28 @@ const placeholderWaveform = Array.from({ length: BAR_COUNT }, (_, i) =>
 );
 
 async function fetchAudioMeta(channelId: string, userId?: string): Promise<AudioMeta> {
-  const { data: channelData } = await supabase
-    .from('channels')
-    .select('listening_order')
-    .eq('channel_id', channelId)
-    .single();
+  const [channelResult, userResult] = await Promise.all([
+    supabase.from('channels').select('listening_order').eq('channel_id', channelId).single(),
+    userId
+      ? supabase.from('users').select('channel_listening_overrides').eq('user_id', userId).single()
+      : Promise.resolve({ data: null }),
+  ]);
 
-  const listeningOrder: 'newest' | 'oldest' = (channelData?.listening_order as any) ?? 'newest';
+  const channelDefault: 'newest' | 'oldest' = (channelResult.data?.listening_order as any) ?? 'newest';
+  const overrides = ((userResult.data as any)?.channel_listening_overrides as Record<string, 'newest' | 'oldest'>) ?? {};
+  const listeningOrder = overrides[channelId] ?? channelDefault;
+  console.log('[fetchAudioMeta] channelId:', channelId, 'listeningOrder:', listeningOrder, 'override:', overrides[channelId] ?? 'none');
   const now = new Date().toISOString();
 
   let audioId: string;
   let audioUrl: string;
   let duration: number;
+  let title: string;
 
   if (listeningOrder === 'newest') {
     const { data, error } = await supabase
       .from('audio_files')
-      .select('audio_id, audio_file, duration_seconds')
+      .select('audio_id, audio_file, duration_seconds, title')
       .eq('channel_id', channelId)
       .or(`release_at.is.null,release_at.lte.${now}`)
       .order('created_at', { ascending: false })
@@ -265,6 +375,7 @@ async function fetchAudioMeta(channelId: string, userId?: string): Promise<Audio
     audioId = data.audio_id as string;
     audioUrl = data.audio_file as string;
     duration = (data.duration_seconds as number) ?? 30;
+    title = (data.title as string) ?? '';
   } else {
     let heardIds: string[] = [];
     if (userId) {
@@ -278,7 +389,7 @@ async function fetchAudioMeta(channelId: string, userId?: string): Promise<Audio
 
     const { data: allAudio, error } = await supabase
       .from('audio_files')
-      .select('audio_id, audio_file, duration_seconds')
+      .select('audio_id, audio_file, duration_seconds, title')
       .eq('channel_id', channelId)
       .or(`release_at.is.null,release_at.lte.${now}`)
       .order('created_at', { ascending: true });
@@ -291,10 +402,11 @@ async function fetchAudioMeta(channelId: string, userId?: string): Promise<Audio
     audioId = target.audio_id as string;
     audioUrl = target.audio_file as string;
     duration = (target.duration_seconds as number) ?? 30;
+    title = (target.title as string) ?? '';
   }
 
   const waveform = await computeWaveform(audioUrl);
-  return { audioUrl, duration, waveform, audioId, listeningOrder };
+  return { audioUrl, duration, waveform, audioId, listeningOrder, title };
 }
 
 async function computeWaveform(url: string): Promise<number[]> {

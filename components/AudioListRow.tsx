@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import ChannelAvatar from './ChannelAvatar';
@@ -19,6 +19,9 @@ type Props = {
   imageUrl?: string;
   onPress: () => void;
   onFavorite?: () => void;
+  onListenFrom?: () => void;
+  onResetFrom?: () => void;
+  onEdit?: () => void;
   onDelete?: () => void;
 };
 
@@ -47,6 +50,9 @@ export default function AudioListRow({
   imageUrl,
   onPress,
   onFavorite,
+  onListenFrom,
+  onResetFrom,
+  onEdit,
   onDelete,
 }: Props) {
   const { bg, surface, text, textSecondary } = useTheme();
@@ -82,7 +88,41 @@ export default function AudioListRow({
       </View>
 
       {onFavorite && isHeard === false && (
-        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary, marginRight: 4 }} />
+        <TouchableOpacity
+          hitSlop={8}
+          onPress={() =>
+            onListenFrom && Alert.alert(
+              'Listen from this point?',
+              'All clips before this one will be marked as heard.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Yes', onPress: onListenFrom },
+              ]
+            )
+          }
+          style={{ paddingHorizontal: 4, marginRight: 2 }}
+        >
+          <Ionicons name="arrow-forward-circle-outline" size={22} color={Colors.primary} />
+        </TouchableOpacity>
+      )}
+
+      {onFavorite && isHeard === true && onResetFrom && (
+        <TouchableOpacity
+          hitSlop={8}
+          onPress={() =>
+            Alert.alert(
+              'Set to listen from this point?',
+              'This clip and all newer clips will be marked as not heard.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Yes', onPress: onResetFrom },
+              ]
+            )
+          }
+          style={{ paddingHorizontal: 4, marginRight: 2 }}
+        >
+          <Ionicons name="arrow-back-circle-outline" size={22} color={Colors.textSecondary} />
+        </TouchableOpacity>
       )}
 
       {onFavorite && (
@@ -92,6 +132,12 @@ export default function AudioListRow({
             size={20}
             color={isFavorited ? Colors.primary : Colors.textSecondary}
           />
+        </TouchableOpacity>
+      )}
+
+      {onEdit && (
+        <TouchableOpacity onPress={onEdit} className="px-2" hitSlop={8}>
+          <Ionicons name="create-outline" size={20} color={Colors.textSecondary} />
         </TouchableOpacity>
       )}
 

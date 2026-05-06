@@ -6,7 +6,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.media.AudioAttributes
-import android.net.Uri
 import android.os.Build
 import android.net.wifi.WifiManager
 import android.os.IBinder
@@ -19,6 +18,7 @@ import java.net.URL
 
 class AlarmService : Service() {
 
+    @Volatile private var isDestroyed = false
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
 
@@ -40,15 +40,23 @@ class AlarmService : Service() {
         AlarmSoundManager.alarmVolume = getSharedPreferences("peace_alarm_prefs", android.content.Context.MODE_PRIVATE)
             .getFloat("alarm_volume", 1.0f)
 
-        // Emit directly to JS bridge — most reliable path when app is already in foreground
+        // Emit directly to JS bridge — most reliable path when app is already in foreground.
+        // Also track whether JS is live; if it is, JS will handle audio via launch() and we
+        // must NOT race it with our own fetch-and-play thread.
+        var jsIsRunning = false
         try {
             val reactContext = (applicationContext as? MainApplication)
                 ?.reactNativeHost?.reactInstanceManager?.currentReactContext
-            reactContext?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-                ?.emit("PeaceAlarmFired", null)
-            Log.d("PeaceAlarm", "AlarmService: emitted PeaceAlarmFired directly to JS bridge")
+            if (reactContext != null) {
+                reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                    ?.emit("PeaceAlarmFired", null)
+                jsIsRunning = true
+                Log.d("PeaceAlarm", "AlarmService: emitted PeaceAlarmFired — JS is live, skipping service audio")
+            } else {
+                Log.d("PeaceAlarm", "AlarmService: no React context — JS not running, service will play audio")
+            }
         } catch (e: Exception) {
-            Log.w("PeaceAlarm", "AlarmService: could not emit PeaceAlarmFired directly: ${e.message}")
+            Log.w("PeaceAlarm", "AlarmService: could not emit PeaceAlarmFired: ${e.message}")
         }
 
         // SharedPreferences — persists even if JS hasn't loaded yet
@@ -60,18 +68,14 @@ class AlarmService : Service() {
         Log.d("PeaceAlarm", "AlarmService: wrote alarm data to SharedPreferences")
 
         // Create notification channel (before startForeground — screen still OFF here)
-        val notifChannelId = "peace_alarm_service_v1"
+        // v2: silent channel — audio is handled entirely by AlarmSoundManager (USAGE_ALARM)
+        val notifChannelId = "peace_alarm_service_v2"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val sound = Uri.parse("android.resource://$packageName/raw/alarm")
-            val audioAttr = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
             val nc = NotificationChannel(notifChannelId, "Alarm", NotificationManager.IMPORTANCE_HIGH).apply {
                 setBypassDnd(true)
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 500, 500, 500)
-                setSound(sound, audioAttr)
+                setSound(null, null)
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             }
             getSystemService(NotificationManager::class.java).createNotificationChannel(nc)
@@ -118,33 +122,27 @@ class AlarmService : Service() {
             .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "PeaceAlarm::AlarmWifiLock")
         wifiLock?.acquire()
 
-        // Fetch channel audio from Supabase and play it; fall back to alarm.wav on any failure
-        Thread {
-            val audioUrl = fetchLatestAudioUrl(channelId)
-            if (audioUrl != null) {
-                Log.d("PeaceAlarm", "AlarmService: playing channel audio $audioUrl")
-                AlarmSoundManager.playUrl(this, audioUrl) {
-                    Log.w("PeaceAlarm", "AlarmService: stream error, falling back to alarm.wav")
-                    AlarmSoundManager.playFallback(this)
+        // If JS is live it will call playAlarmUrl via launch() — don't race it.
+        // Only fetch and play audio here when the app is killed (cold start / no JS context).
+        if (!jsIsRunning) {
+            val fallbackSound = getSharedPreferences("peace_alarm_prefs", android.content.Context.MODE_PRIVATE)
+                .getString("fallback_sound", "alarm") ?: "alarm"
+            Thread {
+                val audioUrl = fetchLatestAudioUrl(channelId)
+                if (isDestroyed) return@Thread
+                if (audioUrl != null) {
+                    Log.d("PeaceAlarm", "AlarmService: playing channel audio $audioUrl")
+                    AlarmSoundManager.playUrl(this, audioUrl) {
+                        if (!isDestroyed) {
+                            Log.w("PeaceAlarm", "AlarmService: stream error, falling back to $fallbackSound")
+                            AlarmSoundManager.playFallback(this, fallbackSound)
+                        }
+                    }
+                } else {
+                    Log.w("PeaceAlarm", "AlarmService: no audio URL, playing fallback $fallbackSound")
+                    AlarmSoundManager.playFallback(this, fallbackSound)
                 }
-            } else {
-                Log.w("PeaceAlarm", "AlarmService: no audio URL, playing alarm.wav")
-                AlarmSoundManager.playFallback(this)
-            }
-        }.start()
-
-        // Fallback startActivity — handles case where app is already in foreground / screen already on
-        try {
-            val activityIntent = Intent(this, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                putExtra("alarmChannelId", channelId)
-                putExtra("alarmChannelName", channelName)
-                putExtra("alarmChannelImageUrl", channelImageUrl)
-            }
-            startActivity(activityIntent)
-            Log.d("PeaceAlarm", "AlarmService: launched MainActivity")
-        } catch (e: Exception) {
-            Log.e("PeaceAlarm", "AlarmService: failed to launch MainActivity: ${e.message}", e)
+            }.start()
         }
 
         return START_NOT_STICKY
@@ -152,6 +150,7 @@ class AlarmService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        isDestroyed = true
         AlarmSoundManager.stop()
         wifiLock?.let { if (it.isHeld) it.release() }
         wifiLock = null
