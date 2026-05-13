@@ -6,6 +6,7 @@ import ChannelAvatar from './ChannelAvatar';
 import { useTheme } from '../hooks/useTheme';
 import AppAlert from './AppAlert';
 import { useAppAlert } from '../hooks/useAppAlert';
+import { useTranslation } from 'react-i18next';
 
 type Props = {
   id: string;
@@ -59,6 +60,7 @@ export default function AudioListRow({
 }: Props) {
   const { bg, surface, text, textSecondary } = useTheme();
   const { showAlert, alertProps } = useAppAlert();
+  const { t } = useTranslation();
   const isScheduled = !!releaseDate && releaseDate > new Date();
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={{ backgroundColor: bg, borderBottomWidth: 1, borderBottomColor: surface }} className="flex-row items-center py-3 px-4">
@@ -81,7 +83,7 @@ export default function AudioListRow({
         </Text>
         {isScheduled ? (
           <Text style={{ color: '#E53935', fontSize: 12, marginTop: 2 }} numberOfLines={1}>
-            Set to release: {formatReleaseDate(releaseDate!)}
+            {t('audio_row.release_prefix')}{formatReleaseDate(releaseDate!)}
           </Text>
         ) : (
           <Text style={{ color: textSecondary }} className="text-[13px] mt-0.5">
@@ -95,11 +97,11 @@ export default function AudioListRow({
           hitSlop={8}
           onPress={() =>
             onListenFrom && showAlert(
-              'Listen from this point?',
-              'All clips before this one will be marked as heard.',
+              t('audio_row.listen_from_here'),
+              t('audio_row.listen_from_here_msg'),
               [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Yes', onPress: onListenFrom },
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('common.yes'), onPress: onListenFrom },
               ]
             )
           }
@@ -114,11 +116,11 @@ export default function AudioListRow({
           hitSlop={8}
           onPress={() =>
             showAlert(
-              'Set to listen from this point?',
-              'This clip and all newer clips will be marked as not heard.',
+              t('audio_row.set_listen_point'),
+              t('audio_row.set_listen_point_msg'),
               [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Yes', onPress: onResetFrom },
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('common.yes'), onPress: onResetFrom },
               ]
             )
           }

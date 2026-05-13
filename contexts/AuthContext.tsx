@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeModules } from 'react-native';
+import * as Localization from 'expo-localization';
 import { supabase } from '../lib/supabase';
 import { stopAllAudio } from '../lib/audioRegistry';
 import type { Session } from '@supabase/supabase-js';
@@ -18,6 +19,7 @@ type AuthContextType = {
   loading: boolean;
   isLoggedIn: boolean;
   username: string | null;
+  language: string;
   timeFormat: TimeFormat;
   setTimeFormat: (fmt: TimeFormat) => void;
   colorScheme: ColorScheme;
@@ -34,6 +36,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   isLoggedIn: false,
   username: null,
+  language: 'en',
   timeFormat: 'standard',
   setTimeFormat: () => {},
   colorScheme: 'light',
@@ -49,16 +52,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState<string | null>(null);
+  const [language, setLanguage] = useState<string>('en');
   const [timeFormatState, setTimeFormatState] = useState<TimeFormat>('standard');
   const [colorSchemeState, setColorSchemeState] = useState<ColorScheme>('light');
   const [alarmVolumeState, setAlarmVolumeState] = useState<number>(1);
 
   const fetchUserPrefs = async (userId: string, sess?: any) => {
-    const { data } = await supabase
+    const { data: rows } = await supabase
       .from('users')
       .select('username, time_format, color_scheme')
       .eq('user_id', userId)
-      .single();
+      .limit(1);
+    const data = rows?.[0] ?? null;
     if (data?.username) {
       setUsername(data.username);
     } else {
@@ -70,6 +75,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     if (data?.color_scheme === 'dark' || data?.color_scheme === 'light') {
       setColorSchemeState(data.color_scheme);
+    }
+
+    // Sync device language to Supabase if it has changed
+    const deviceLanguage = Localization.getLocales()?.[0]?.languageCode ?? 'en';
+    setLanguage(deviceLanguage);
+    if (deviceLanguage && data?.language !== deviceLanguage) {
+      supabase.from('users').update({ language: deviceLanguage } as any).eq('user_id', userId).then(() => {});
     }
   };
 
@@ -148,6 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       isLoggedIn: !!session,
       username,
+      language,
       timeFormat: timeFormatState,
       setTimeFormat,
       colorScheme: colorSchemeState,

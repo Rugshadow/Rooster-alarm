@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../constants/colors';
 import { useTheme } from '../hooks/useTheme';
+import { useTranslation } from 'react-i18next';
 
 const HOURS_12 = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
@@ -117,6 +118,7 @@ function TimePickerModal({ visible, value, onCancel, onConfirm }: {
   onConfirm: (date: Date) => void;
 }) {
   const { bg, surface, text, textSecondary } = useTheme();
+  const { t } = useTranslation();
   const h = value.getHours();
   const [hour, setHour] = useState(String(h % 12 === 0 ? 12 : h % 12).padStart(2, '0'));
   const [minute, setMinute] = useState(String(value.getMinutes()).padStart(2, '0'));
@@ -144,7 +146,7 @@ function TimePickerModal({ visible, value, onCancel, onConfirm }: {
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24 }}>
         <View style={{ backgroundColor: bg, borderRadius: 24, padding: 24 }}>
           <Text style={{ fontSize: 17, fontWeight: '700', color: text, textAlign: 'center', marginBottom: 20 }}>
-            Set Release Time
+            {t('finalize_audio.set_release_time')}
           </Text>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -174,13 +176,13 @@ function TimePickerModal({ visible, value, onCancel, onConfirm }: {
               onPress={onCancel}
               style={{ flex: 1, paddingVertical: 14, borderRadius: 100, alignItems: 'center', backgroundColor: surface }}
             >
-              <Text style={{ fontWeight: '600', fontSize: 15, color: text }}>Cancel</Text>
+              <Text style={{ fontWeight: '600', fontSize: 15, color: text }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleConfirm}
               style={{ flex: 1, paddingVertical: 14, borderRadius: 100, alignItems: 'center', backgroundColor: Colors.primary }}
             >
-              <Text style={{ fontWeight: '700', fontSize: 15, color: Colors.textPrimary }}>Set Release Time</Text>
+              <Text style={{ fontWeight: '700', fontSize: 15, color: Colors.textPrimary }}>{t('finalize_audio.set_release_time')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -188,9 +190,6 @@ function TimePickerModal({ visible, value, onCancel, onConfirm }: {
     </Modal>
   );
 }
-
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const DAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
 type ScheduledRelease = { date: Date; title: string };
 
@@ -201,6 +200,9 @@ function InlineCalendar({ value, minDate, onChange, scheduledDates = [] }: {
   scheduledDates?: ScheduledRelease[];
 }) {
   const { surface, text, textSecondary } = useTheme();
+  const { t } = useTranslation();
+  const MONTHS = t('finalize_audio.months', { returnObjects: true }) as string[];
+  const DAY_LABELS = t('finalize_audio.day_labels', { returnObjects: true }) as string[];
   const [viewYear, setViewYear] = useState(value.getFullYear());
   const [viewMonth, setViewMonth] = useState(value.getMonth());
 
@@ -324,6 +326,7 @@ type Props = {
 
 export default function FinalizeAudioSheet({ visible, onBack, onComplete, scheduledDates, initialTitle, initialThumbnailUri, initialReleaseDate, releaseDateLocked }: Props) {
   const { bg } = useTheme();
+  const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [thumbnailUri, setThumbnailUri] = useState<string | undefined>(initialThumbnailUri);
   const [thumbnailBase64, setThumbnailBase64] = useState<string | undefined>();
@@ -391,7 +394,7 @@ export default function FinalizeAudioSheet({ visible, onBack, onComplete, schedu
         <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
-              Finalize Audio
+              {t('finalize_audio.title')}
             </Text>
           </View>
         </SafeAreaView>
@@ -399,7 +402,7 @@ export default function FinalizeAudioSheet({ visible, onBack, onComplete, schedu
         <ScrollView className="flex-1 px-6 pt-6">
           {/* Thumbnail */}
           <Text className="text-[12px] font-semibold text-text-secondary tracking-wider mb-3">
-            THUMBNAIL
+            {t('finalize_audio.thumbnail_label')}
           </Text>
           <TouchableOpacity
             onPress={pickThumbnail}
@@ -417,19 +420,19 @@ export default function FinalizeAudioSheet({ visible, onBack, onComplete, schedu
             ) : (
               <>
                 <Ionicons name="image-outline" size={32} color={Colors.textSecondary} />
-                <Text className="text-text-secondary text-[13px] mt-2">Upload Thumbnail</Text>
+                <Text className="text-text-secondary text-[13px] mt-2">{t('finalize_audio.upload_thumbnail')}</Text>
               </>
             )}
           </TouchableOpacity>
 
           {/* Title */}
           <Text className="text-[12px] font-semibold text-text-secondary tracking-wider mt-6 mb-2">
-            TITLE
+            {t('finalize_audio.title_label')}
           </Text>
           <TextInput
             value={title}
             onChangeText={setTitle}
-            placeholder="Enter audio title..."
+            placeholder={t('finalize_audio.title_placeholder')}
             placeholderTextColor={Colors.textSecondary}
             className="bg-surface rounded-2xl px-4 py-3.5 text-[15px] text-text-primary"
             autoCapitalize="sentences"
@@ -439,13 +442,13 @@ export default function FinalizeAudioSheet({ visible, onBack, onComplete, schedu
 
           {/* Release toggle */}
           <Text className="text-[12px] font-semibold text-text-secondary tracking-wider mt-6 mb-3">
-            RELEASE
+            {t('finalize_audio.release_label')}
           </Text>
           {releaseDateLocked ? (
             <View className="bg-surface rounded-2xl px-4 py-3.5 flex-row items-center gap-3">
               <Ionicons name="lock-closed-outline" size={18} color={Colors.textSecondary} />
               <Text className="text-[14px] text-text-secondary">
-                Already released — date cannot be changed
+                {t('finalize_audio.release_locked')}
               </Text>
             </View>
           ) : (
@@ -462,7 +465,7 @@ export default function FinalizeAudioSheet({ visible, onBack, onComplete, schedu
                       className="font-semibold text-[14px]"
                       style={{ color: releaseMode === mode ? Colors.textPrimary : Colors.textSecondary }}
                     >
-                      {mode === 'immediate' ? 'Available Immediately' : 'Set Release'}
+                      {mode === 'immediate' ? t('finalize_audio.release_immediate') : t('finalize_audio.set_release')}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -497,14 +500,14 @@ export default function FinalizeAudioSheet({ visible, onBack, onComplete, schedu
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}
           >
             <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-            <Text className="font-medium text-[15px] text-text-primary">Back</Text>
+            <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
           </TouchableOpacity>
           <View style={{ width: 1, backgroundColor: Colors.primaryDark, marginVertical: 8 }} />
           <TouchableOpacity
             onPress={handleComplete}
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, opacity: isComplete ? 1 : 0.4 }}
           >
-            <Text className="font-medium text-[15px] text-text-primary">Complete</Text>
+            <Text className="font-medium text-[15px] text-text-primary">{t('finalize_audio.complete')}</Text>
             <Ionicons name="checkmark" size={20} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>

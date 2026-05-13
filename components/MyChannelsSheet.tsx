@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useTranslation } from 'react-i18next';
 
 type Channel = {
   channel_id: string;
@@ -31,6 +32,7 @@ type Props = {
 
 export default function MyChannelsSheet({ visible, onClose, onAddNew, onSelect, refreshTrigger }: Props) {
   const { session } = useAuth();
+  const { t } = useTranslation();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -51,7 +53,7 @@ export default function MyChannelsSheet({ visible, onClose, onAddNew, onSelect, 
 
     const { data } = await supabase
       .from('channels')
-      .select('channel_id, name, cover_photo, genre')
+      .select('channel_id, name, cover_photo, genre, bio')
       .in('channel_id', channelIds);
 
     setChannels(data ?? []);
@@ -64,7 +66,7 @@ export default function MyChannelsSheet({ visible, onClose, onAddNew, onSelect, 
         <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
-              My Channels
+              {t('my_channels.title')}
             </Text>
           </View>
         </SafeAreaView>
@@ -75,7 +77,7 @@ export default function MyChannelsSheet({ visible, onClose, onAddNew, onSelect, 
           </View>
         ) : channels.length === 0 ? (
           <View className="flex-1 items-center justify-center px-8">
-            <Text className="text-text-secondary text-[15px] text-center">No channels yet.</Text>
+            <Text className="text-text-secondary text-[15px] text-center">{t('my_channels.no_channels')}</Text>
           </View>
         ) : (
           <FlatList
@@ -114,7 +116,7 @@ export default function MyChannelsSheet({ visible, onClose, onAddNew, onSelect, 
             className="rounded-full py-3 items-center"
             style={{ backgroundColor: Colors.primary }}
           >
-            <Text className="font-bold text-[15px] text-text-primary">+ Add New Channel</Text>
+            <Text className="font-bold text-[15px] text-text-primary">{t('my_channels.add_new')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -125,7 +127,7 @@ export default function MyChannelsSheet({ visible, onClose, onAddNew, onSelect, 
             style={{ paddingBottom: 24 }}
           >
             <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-            <Text className="font-medium text-[15px] text-text-primary">Back</Text>
+            <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

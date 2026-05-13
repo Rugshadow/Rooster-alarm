@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../hooks/useTheme';
+import { useTranslation } from 'react-i18next';
 import AlarmSheet from '../../components/AlarmSheet';
 import { useAlarmsContext, type SetAlarm } from '../../contexts/AlarmsContext';
 
@@ -13,6 +14,7 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export default function ScheduleScreen() {
   const { timeFormat, isLoggedIn } = useAuth();
   const { bg, text, textSecondary } = useTheme();
+  const { t } = useTranslation();
   const { alarms, addAlarm, editAlarm, removeAlarmDirect, toggleAlarm, refetch } = useAlarmsContext();
   const [sheetVisible, setSheetVisible] = useState(false);
   const [editingAlarm, setEditingAlarm] = useState<SetAlarm | null>(null);
@@ -72,10 +74,13 @@ export default function ScheduleScreen() {
             style={{ width: 96, height: 96, borderRadius: 24, marginBottom: 24 }}
             resizeMode="cover"
           />
-          <Text className="text-[20px] font-bold mb-2" style={{ color: text }}>No alarms yet</Text>
+          <Text className="text-[20px] font-bold mb-2" style={{ color: text }}>{t('schedule.no_alarms')}</Text>
+          <Text className="text-[15px] text-center mb-6" style={{ color: textSecondary }}>
+            {t('schedule.no_alarms_subtext')}
+          </Text>
           {!isLoggedIn && (
             <Text className="text-[15px] text-center mb-8" style={{ color: textSecondary }}>
-              Log in or create an account to set an alarm.
+              {t('schedule.login_prompt')}
             </Text>
           )}
           {isLoggedIn && (
@@ -84,7 +89,7 @@ export default function ScheduleScreen() {
               className="rounded-full px-8 py-3.5"
               style={{ backgroundColor: Colors.primary }}
             >
-              <Text className="font-bold text-[16px] text-text-primary">+ Add Alarm</Text>
+              <Text className="font-bold text-[16px] text-text-primary">{t('schedule.add_alarm')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -159,7 +164,7 @@ export default function ScheduleScreen() {
               className="rounded-full py-3.5 items-center mt-2"
               style={{ backgroundColor: Colors.primary }}
             >
-              <Text className="font-bold text-[16px] text-text-primary">+ Add Alarm</Text>
+              <Text className="font-bold text-[16px] text-text-primary">{t('schedule.add_alarm')}</Text>
             </TouchableOpacity>
           }
         />

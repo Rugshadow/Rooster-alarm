@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import AlarmRingingModal from './AlarmRingingModal';
 import AppAlert from './AppAlert';
 import { useAppAlert } from '../hooks/useAppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +19,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../hooks/useTheme';
 import { saveFavoriteChannel, removeFavoriteChannel } from '../lib/cachedFavorites';
+import { useTranslation } from 'react-i18next';
 
 export type Channel = {
   id: string;
@@ -50,7 +52,9 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
   const { session, isLoggedIn } = useAuth();
   const { bg, text, textSecondary } = useTheme();
   const { showAlert, alertProps } = useAppAlert();
+  const { t } = useTranslation();
   const { playingId, play, stop } = useAudioPlayer();
+  const [previewClip, setPreviewClip] = useState<{ audioUrl: string; duration: number; title: string; audioId: string } | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
   const [favoriteClips, setFavoriteClips] = useState<string[]>([]);
   const [heardClips, setHeardClips] = useState<string[]>([]);
@@ -123,7 +127,7 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
   };
 
   const showLoginAlert = () => {
-    showAlert('Login Required', 'Log in or create an account to set an alarm or save a favorite.');
+    showAlert(t('channel_sheet.login_required'), t('channel_sheet.login_for_alarm'));
   };
 
   const handleListenFrom = async (clipIndex: number) => {
@@ -151,7 +155,7 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
   };
 
   const toggleFavoriteClip = async (clipId: string) => {
-    if (!isLoggedIn || !session) { showAlert('Login Required', 'You must be logged in to save a favorite.'); return; }
+    if (!isLoggedIn || !session) { showAlert(t('channel_sheet.login_required'), t('channel_sheet.login_for_favorite')); return; }
     const { data } = await supabase
       .from('users')
       .select('favorite_samples')
@@ -176,11 +180,13 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
             <ChannelAvatar id={channel.id} name={channel.name} size="large" imageUrl={channel.imageUrl} />
             <Text className="text-[22px] font-bold mt-4" style={{ color: text }}>{channel.name}</Text>
             <Text className="text-[14px] mt-1" style={{ color: textSecondary }}>
-              {channel.listeners.toLocaleString()} listeners · {channel.genre}
+              {t('channel_sheet.listeners_genre', { listeners: channel.listeners.toLocaleString(), genre: t(`genres.${channel.genre.toLowerCase()}`) })}
             </Text>
-            <Text className="text-[15px] mt-3 text-center" style={{ color: textSecondary }}>
-              {channel.bio}
-            </Text>
+            {!!channel.bio && (
+              <Text className="text-[15px] mt-3 text-center" style={{ color: textSecondary }}>
+                {channel.bio}
+              </Text>
+            )}
 
             <View className="flex-row gap-3 mt-6 w-full">
               <TouchableOpacity
@@ -188,7 +194,7 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
                 className="flex-1 rounded-full py-3 items-center"
                 style={{ backgroundColor: Colors.primary, opacity: isLoggedIn ? 1 : 0.4 }}
               >
-                <Text className="font-bold text-[15px] text-text-primary">Set as Alarm</Text>
+                <Text className="font-bold text-[15px] text-text-primary">{t('channel_sheet.set_alarm')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -201,7 +207,7 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
                 }}
               >
                 <Text className="font-medium text-[15px]" style={{ color: isFavorited ? Colors.textPrimary : text }}>
-                  {isFavorited ? '★ Favorite' : '☆ Favorite'}
+                  {isFavorited ? t('channel_sheet.favorite_active') : t('channel_sheet.favorite_inactive')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -209,7 +215,7 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
 
           <View className="px-4 pb-2">
             <Text className="text-[13px] font-semibold tracking-wider" style={{ color: textSecondary }}>
-              ALL UPLOADS ({channel.uploads.length})
+              {t('channel_sheet.all_uploads', { count: channel.uploads.length })}
             </Text>
           </View>
 
@@ -226,7 +232,7 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
               isFavorited={favoriteClips.includes(clip.id)}
               isHeard={isLoggedIn ? heardClips.includes(clip.id) : undefined}
               imageUrl={clip.imageUrl}
-              onPress={() => play(clip.id, clip.audioUrl)}
+              onPress={() => { stop(); setPreviewClip({ audioUrl: clip.audioUrl, duration: clip.duration, title: clip.title, audioId: clip.id }); }}
               onFavorite={() => toggleFavoriteClip(clip.id)}
               onListenFrom={isLoggedIn ? () => handleListenFrom(index) : undefined}
               onResetFrom={isLoggedIn ? () => handleResetFrom(index) : undefined}
@@ -236,7 +242,7 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
           {isLoggedIn && (
             <View style={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 8 }}>
               <Text style={{ color: textSecondary, fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 12 }}>
-                YOUR LISTENING ORDER
+                {t('channel_sheet.listening_order')}
               </Text>
               <View style={{ flexDirection: 'row', backgroundColor: '#F5F5F0', borderRadius: 16, padding: 4 }}>
                 {(['newest', 'oldest'] as const).map((mode) => (
@@ -256,7 +262,7 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
                       fontWeight: '600',
                       color: userOrder === mode ? Colors.textPrimary : Colors.textSecondary,
                     }}>
-                      {mode === 'newest' ? 'Newest content always' : 'Play from beginning'}
+                      {mode === 'newest' ? t('channel_sheet.order_newest') : t('channel_sheet.order_oldest')}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -271,10 +277,21 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}
           >
             <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-            <Text className="font-medium text-[15px] text-text-primary">Back</Text>
+            <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+
+      {previewClip && (
+        <AlarmRingingModal
+          visible={!!previewClip}
+          channelId={channel.id}
+          channelName={channel.name}
+          channelImageUrl={channel.imageUrl}
+          previewClip={previewClip}
+          onDismiss={() => setPreviewClip(null)}
+        />
+      )}
     </Modal>
   );
 }

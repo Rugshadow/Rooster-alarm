@@ -6,11 +6,15 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { Colors } from '../../constants/colors';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { setUsername } = useAuth();
+  const { t } = useTranslation();
 
   const handleGoogleLogin = async () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
@@ -29,7 +33,8 @@ export default function LoginScreen() {
       if (accessToken && refreshToken) {
         const { data: { user } } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
         if (user) {
-          const { data } = await supabase.from('users').select('user_id').eq('user_id', user.id).maybeSingle();
+          const { data } = await supabase.from('users').select('user_id, username').eq('user_id', user.id).maybeSingle();
+          if (data?.username) setUsername(data.username);
           router.replace(data ? '/(tabs)/browse' : '/auth/create-username');
         }
       }
@@ -45,11 +50,11 @@ export default function LoginScreen() {
           resizeMode="cover"
         />
         <Text className="text-[28px] font-bold text-text-primary mb-1">Peace Alarm</Text>
-        <Text className="text-text-secondary text-[15px] mb-10">Wake up to what you love</Text>
+        <Text className="text-text-secondary text-[15px] mb-10">{t('auth.app_tagline')}</Text>
 
         <TouchableOpacity onPress={handleGoogleLogin} className="w-full flex-row items-center justify-center gap-3 bg-surface rounded-2xl py-4 mb-3">
           <FontAwesome name="google" size={20} color="#4285F4" />
-          <Text className="font-semibold text-[16px] text-text-primary">Log in with Google</Text>
+          <Text className="font-semibold text-[16px] text-text-primary">{t('auth.login_google')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -57,12 +62,12 @@ export default function LoginScreen() {
           className="w-full flex-row items-center justify-center rounded-2xl py-4 mb-4"
           style={{ backgroundColor: Colors.primary }}
         >
-          <Text className="font-semibold text-[16px] text-text-primary">Log in with Email</Text>
+          <Text className="font-semibold text-[16px] text-text-primary">{t('auth.login_email')}</Text>
         </TouchableOpacity>
 
         <View className="flex-row items-center gap-4 w-full mb-4">
           <View className="flex-1 h-px bg-gray-200" />
-          <Text className="text-text-secondary text-[14px]">or</Text>
+          <Text className="text-text-secondary text-[14px]">{t('auth.or')}</Text>
           <View className="flex-1 h-px bg-gray-200" />
         </View>
 
@@ -71,7 +76,7 @@ export default function LoginScreen() {
           className="w-full items-center rounded-2xl py-4 border"
           style={{ borderColor: Colors.textSecondary }}
         >
-          <Text className="font-semibold text-[16px] text-text-primary">Create an Account</Text>
+          <Text className="font-semibold text-[16px] text-text-primary">{t('auth.create_account')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -82,7 +87,7 @@ export default function LoginScreen() {
           style={{ paddingBottom: 24 }}
         >
           <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-          <Text className="font-medium text-[15px] text-text-primary">Back</Text>
+          <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

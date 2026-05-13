@@ -2,17 +2,20 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Channel, AudioClip } from '../components/ChannelSheet';
 
-export function useChannels() {
+export function useChannels(language?: string) {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [language]);
 
   const load = async () => {
+    let channelsQuery = supabase.from('channels').select('channel_id, name, genre, bio, cover_photo, owner_id, listening_order');
+    if (language) channelsQuery = channelsQuery.contains('language', [language]);
+
     const [{ data: channelRows }, { data: audioFiles }, { data: users }] = await Promise.all([
-      supabase.from('channels').select('channel_id, name, genre, cover_photo, owner_id, listening_order'),
+      channelsQuery,
       supabase.from('audio_files').select('*').order('created_at', { ascending: false }),
       supabase.from('users').select('user_id, set_alarms'),
     ]);
@@ -61,7 +64,7 @@ export function useChannels() {
         name: ch.name,
         genre: ch.genre ?? 'general',
         listeners: alarmCountMap[ch.channel_id] ?? 0,
-        bio: '',
+        bio: ch.bio ?? '',
         imageUrl: ch.cover_photo ?? undefined,
         uploads,
         listeningOrder: (ch.listening_order as 'newest' | 'oldest') ?? 'newest',

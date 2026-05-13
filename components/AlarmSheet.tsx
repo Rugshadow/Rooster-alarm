@@ -22,6 +22,7 @@ import { useTheme } from '../hooks/useTheme';
 import { supabase } from '../lib/supabase';
 import type { SetAlarm } from '../contexts/AlarmsContext';
 import { getCachedFavorites, resolveImageUri } from '../lib/cachedFavorites';
+import { useTranslation } from 'react-i18next';
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const HOURS_12 = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
@@ -162,6 +163,7 @@ function PickerCarouselRow({
   onSeeMore?: () => void;
 }) {
   const { text, textSecondary } = useTheme();
+  const { t } = useTranslation();
   if (channels.length === 0) return null;
   const visible = channels.slice(0, 10);
   const hasMore = channels.length > 10;
@@ -181,7 +183,7 @@ function PickerCarouselRow({
             style={{ width: 120, height: 120, backgroundColor: Colors.primary }}
           >
             <Ionicons name="arrow-forward-circle-outline" size={24} color={Colors.textPrimary} />
-            <Text className="text-[10px] font-semibold mt-1" style={{ color: Colors.textPrimary }}>See More</Text>
+            <Text className="text-[10px] font-semibold mt-1" style={{ color: Colors.textPrimary }}>{t('alarm_sheet.see_more')}</Text>
           </TouchableOpacity>
         ) : null}
         renderItem={({ item }) => (
@@ -206,6 +208,7 @@ function ChannelPickerModal({
 }) {
   const { session, isLoggedIn } = useAuth();
   const { bg, surface, text, textSecondary } = useTheme();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<'favorites' | 'all'>('favorites');
   const [search, setSearch] = useState('');
   const [favChannels, setFavChannels] = useState<Channel[]>([]);
@@ -306,7 +309,7 @@ function ChannelPickerModal({
   const topChannels = [...allChannels].sort((a, b) => a.name.localeCompare(b.name));
   const genres = PICKER_GENRES.filter((g) => allChannels.some((c) => c.genre === g));
   const genreSections = genres.map((g) => ({
-    title: g,
+    title: t(`genres.${g.toLowerCase()}`),
     channels: allChannels.filter((c) => c.genre === g),
   }));
 
@@ -323,7 +326,7 @@ function ChannelPickerModal({
         <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
           <View className="px-4 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
-              Choose a Channel
+              {t('alarm_sheet.choose_channel')}
             </Text>
           </View>
         </SafeAreaView>
@@ -331,24 +334,24 @@ function ChannelPickerModal({
         {/* Tab slider */}
         <View className="px-4 pt-3 pb-1">
           <View className="rounded-2xl p-1 flex-row" style={{ backgroundColor: surface }}>
-            {(['favorites', 'all'] as const).map((t) => (
+            {(['favorites', 'all'] as const).map((tabKey) => (
               <TouchableOpacity
-                key={t}
-                onPress={() => handleTabChange(t)}
+                key={tabKey}
+                onPress={() => handleTabChange(tabKey)}
                 className="flex-1 py-2.5 rounded-xl items-center"
                 style={{
-                  backgroundColor: tab === t ? bg : 'transparent',
-                  shadowColor: tab === t ? '#000' : 'transparent',
-                  shadowOpacity: tab === t ? 0.08 : 0,
+                  backgroundColor: tab === tabKey ? bg : 'transparent',
+                  shadowColor: tab === tabKey ? '#000' : 'transparent',
+                  shadowOpacity: tab === tabKey ? 0.08 : 0,
                   shadowRadius: 4,
-                  elevation: tab === t ? 2 : 0,
+                  elevation: tab === tabKey ? 2 : 0,
                 }}
               >
                 <Text
                   className="font-medium text-[15px]"
-                  style={{ color: tab === t ? text : textSecondary }}
+                  style={{ color: tab === tabKey ? text : textSecondary }}
                 >
-                  {t === 'favorites' ? 'Favorites' : 'All'}
+                  {tabKey === 'favorites' ? t('alarm_sheet.tab_favorites') : t('alarm_sheet.tab_all')}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -362,7 +365,7 @@ function ChannelPickerModal({
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Search channels..."
+              placeholder={t('alarm_sheet.search_placeholder')}
               placeholderTextColor={textSecondary}
               className="flex-1 text-[15px]"
               style={{ color: text }}
@@ -389,9 +392,9 @@ function ChannelPickerModal({
               <Text className="text-[15px] text-center" style={{ color: textSecondary }}>
                 {tab === 'favorites'
                   ? isLoggedIn
-                    ? 'No favorite channels yet. Add some from the Browse tab.'
-                    : 'Log in to see your favorites.'
-                  : `No channels found for "${search}"`}
+                    ? t('alarm_sheet.no_favorites')
+                    : t('alarm_sheet.login_to_see_favorites')
+                  : t('alarm_sheet.no_channels_found', { search })}
               </Text>
             </View>
           ) : (
@@ -418,7 +421,7 @@ function ChannelPickerModal({
           // "All" tab — browse layout with carousels
           <ScrollView showsVerticalScrollIndicator={false} className="flex-1" contentContainerStyle={{ paddingTop: 8, paddingBottom: 16 }}>
             <PickerCarouselRow
-              title="All Channels"
+              title={t('alarm_sheet.all_channels')}
               channels={topChannels}
               onPress={handleSelect}
               onSeeMore={() => setGridView({ title: 'All Channels', channels: topChannels })}
@@ -442,7 +445,7 @@ function ChannelPickerModal({
             style={{ paddingBottom: 24 }}
           >
             <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-            <Text className="font-medium text-[15px] text-text-primary">Back</Text>
+            <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -453,6 +456,7 @@ function ChannelPickerModal({
 export default function AlarmSheet({ visible, onClose, onSave, preselectedChannel, initialAlarm, onDelete }: Props) {
   const { timeFormat } = useAuth();
   const { bg, surface, text, textSecondary } = useTheme();
+  const { t } = useTranslation();
   const HOURS = timeFormat === 'military' ? HOURS_24 : HOURS_12;
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
 
@@ -554,14 +558,14 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
         <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
-              {initialAlarm ? 'Edit Alarm' : 'New Alarm'}
+              {initialAlarm ? t('alarm_sheet.edit_alarm') : t('alarm_sheet.new_alarm')}
             </Text>
           </View>
         </SafeAreaView>
 
         <ScrollView className="flex-1 px-6 pt-6">
           <Text className="text-[12px] font-semibold tracking-wider mb-2" style={{ color: textSecondary }}>
-            CHANNEL
+            {t('alarm_sheet.channel_label')}
           </Text>
 
           <TouchableOpacity
@@ -586,7 +590,7 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
               <>
                 <Ionicons name="add-circle-outline" size={28} color={textSecondary} />
                 <Text className="text-[13px] mt-2 text-center px-2" style={{ color: textSecondary }} numberOfLines={2}>
-                  {selectedChannel ? selectedChannel.name : 'Pick a channel'}
+                  {selectedChannel ? selectedChannel.name : t('alarm_sheet.pick_channel')}
                 </Text>
               </>
             )}
@@ -599,7 +603,7 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
           )}
 
           <Text className="text-[12px] font-semibold tracking-wider mt-6 mb-2" style={{ color: textSecondary }}>
-            WAKE TIME
+            {t('alarm_sheet.wake_time')}
           </Text>
           <View className="flex-row items-center justify-center gap-3">
             <TimeScroller items={HOURS} selected={hour} onChange={setHour} />
@@ -628,7 +632,7 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
           </View>
 
           <Text className="text-[12px] font-semibold tracking-wider mt-6 mb-3" style={{ color: textSecondary }}>
-            REPEAT
+            {t('alarm_sheet.repeat')}
           </Text>
           <View className="flex-row gap-2 justify-center">
             {DAYS.map((day, idx) => {
@@ -662,7 +666,7 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
               className="rounded-full py-3 items-center"
               style={{ backgroundColor: Colors.destructive }}
             >
-              <Text className="font-bold text-[15px] text-white">Delete Alarm</Text>
+              <Text className="font-bold text-[15px] text-white">{t('alarm_sheet.delete_alarm')}</Text>
             </TouchableOpacity>
           )}
           <View className="flex-row gap-3">
@@ -671,7 +675,7 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
               className="flex-1 rounded-full py-3 items-center"
               style={{ backgroundColor: surface }}
             >
-              <Text className="font-semibold text-[15px]" style={{ color: text }}>Cancel</Text>
+              <Text className="font-semibold text-[15px]" style={{ color: text }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleSave}
@@ -682,7 +686,7 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
                 className="font-bold text-[15px]"
                 style={{ color: isComplete ? Colors.textPrimary : textSecondary }}
               >
-                Save Alarm
+                {t('alarm_sheet.save_alarm')}
               </Text>
             </TouchableOpacity>
           </View>

@@ -18,6 +18,8 @@ import AlarmSheet from '../../components/AlarmSheet';
 import { useChannels } from '../../hooks/useChannels';
 import { useAlarmsContext } from '../../contexts/AlarmsContext';
 import { useTheme } from '../../hooks/useTheme';
+import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 const GENRES = ['Music', 'News', 'Comedy', 'Ambient', 'Motivational', 'Religious', 'Education', 'Storytelling', 'Fitness', 'Alternative'];
 
@@ -35,6 +37,7 @@ function GenreGridSheet({
   onPress: (ch: Channel) => void;
 }) {
   const { bg, text, textSecondary } = useTheme();
+  const { t } = useTranslation();
   const { bottom } = useSafeAreaInsets();
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
@@ -70,7 +73,7 @@ function GenreGridSheet({
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}
           >
             <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-            <Text className="font-medium text-[15px] text-text-primary">Back</Text>
+            <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -90,6 +93,7 @@ function CarouselSection({
   onSeeMore?: () => void;
 }) {
   const { text, textSecondary } = useTheme();
+  const { t } = useTranslation();
   if (channels.length === 0) return null;
   const visible = channels.slice(0, 10);
   const hasMore = channels.length > 10;
@@ -112,7 +116,7 @@ function CarouselSection({
             >
               <Ionicons name="arrow-forward-circle-outline" size={28} color={Colors.textPrimary} />
               <Text className="text-[11px] font-semibold mt-1" style={{ color: Colors.textPrimary }}>
-                See More
+                {t('browse.see_more')}
               </Text>
             </TouchableOpacity>
           ) : null
@@ -136,7 +140,9 @@ function CarouselSection({
 
 export default function BrowseScreen() {
   const { bg, textSecondary } = useTheme();
-  const { channels, loading } = useChannels();
+  const { language } = useAuth();
+  const { t } = useTranslation();
+  const { channels, loading } = useChannels(language);
   const { addAlarm } = useAlarmsContext();
   const [searchText, setSearchText] = useState('');
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
@@ -157,7 +163,7 @@ export default function BrowseScreen() {
   const topByFollowers = [...channels].sort((a, b) => b.listeners - a.listeners);
   const genres = GENRES.filter((g) => channels.some((c) => c.genre === g));
   const genreSections = genres.map((genre) => ({
-    title: genre,
+    title: t(`genres.${genre.toLowerCase()}`),
     channels: channels.filter((c) => c.genre === genre).sort((a, b) => b.listeners - a.listeners),
   }));
 
@@ -170,7 +176,7 @@ export default function BrowseScreen() {
             <TextInput
               value={searchText}
               onChangeText={setSearchText}
-              placeholder="Search channels..."
+              placeholder={t('browse.search_placeholder')}
               placeholderTextColor={Colors.textSecondary}
               className="flex-1 text-[15px]"
               style={{ color: textSecondary }}
@@ -193,15 +199,15 @@ export default function BrowseScreen() {
           <View className="pt-4">
             {filteredChannels ? (
               filteredChannels.length > 0 ? (
-                <CarouselSection title="Results" channels={filteredChannels} onPress={openChannel} />
+                <CarouselSection title={t('browse.results')} channels={filteredChannels} onPress={openChannel} />
               ) : (
                 <View className="items-center py-16">
-                  <Text className="text-[15px]" style={{ color: textSecondary }}>No channels found for "{searchText}"</Text>
+                  <Text className="text-[15px]" style={{ color: textSecondary }}>{t('browse.no_results', { search: searchText })}</Text>
                 </View>
               )
             ) : (
               <>
-                <CarouselSection title="Popular" channels={topByFollowers} onPress={openChannel} onSeeMore={() => setGridGenre({ title: 'Popular', channels: topByFollowers })} />
+                <CarouselSection title={t('browse.popular')} channels={topByFollowers} onPress={openChannel} onSeeMore={() => setGridGenre({ title: t('browse.popular'), channels: topByFollowers })} />
                 {genreSections.map((section, i) => (
                   <CarouselSection
                     key={`${section.title}-${i}`}

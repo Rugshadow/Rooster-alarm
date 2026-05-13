@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 const { IntentData, AlarmClock } = NativeModules;
 
@@ -20,17 +21,21 @@ const BAR_COUNT = 40;
 
 type AudioMeta = { audioUrl: string; duration: number; waveform: number[]; audioId: string; listeningOrder: 'newest' | 'oldest'; title: string };
 
+type PreviewClip = { audioUrl: string; duration: number; title: string; audioId: string };
+
 type Props = {
   visible: boolean;
   channelId: string;
   channelName: string;
   channelImageUrl?: string;
   onDismiss: () => void;
+  previewClip?: PreviewClip;
 };
 
-export default function AlarmRingingModal({ visible, channelId, channelName, channelImageUrl, onDismiss }: Props) {
+export default function AlarmRingingModal({ visible, channelId, channelName, channelImageUrl, onDismiss, previewClip }: Props) {
   const { width } = useWindowDimensions();
   const { session } = useAuth();
+  const { t } = useTranslation();
   const [usingFallback, setUsingFallback] = useState(false);
   const [meta, setMeta] = useState<AudioMeta | null>(null);
   const startedRef = useRef(false);
@@ -59,10 +64,16 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
   }, [visible]);
 
   const launch = async () => {
-    Vibration.vibrate(VIBRATION_PATTERN, true);
+    if (!previewClip) Vibration.vibrate(VIBRATION_PATTERN, true);
     console.log('[launch] channelId:', channelId, 'userId:', session?.user.id);
     try {
-      const audioMeta = await fetchAudioMeta(channelId, session?.user.id);
+      let audioMeta: AudioMeta;
+      if (previewClip) {
+        const waveform = await computeWaveform(previewClip.audioUrl);
+        audioMeta = { ...previewClip, waveform, listeningOrder: 'newest' };
+      } else {
+        audioMeta = await fetchAudioMeta(channelId, session?.user.id);
+      }
       if (dismissedRef.current) {
         console.log('[launch] dismissed during fetch, aborting playback');
         return;
@@ -142,7 +153,7 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
   const handleSnooze = async () => {
     stopAlarm();
     stopPlayhead();
-    if (AlarmClock) {
+    if (!previewClip && AlarmClock) {
       try {
         await AlarmClock.scheduleAlarm(
           `snooze_${Date.now()}`,
@@ -178,9 +189,9 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
     userDismissedRef.current = false;
     stopAlarm();
     stopPlayhead();
-    const played = playedAudioRef.current;
-    if (played) {
-      markAsHeard(played.audioId);
+    if (!previewClip) {
+      const played = playedAudioRef.current;
+      if (played) markAsHeard(played.audioId);
     }
     playedAudioRef.current = null;
     onDismiss();
@@ -244,7 +255,7 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
         {/* Channel info */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
           <Text style={{ color: '#888', fontSize: 11, letterSpacing: 2.5, marginBottom: 4 }}>
-            {usingFallback ? 'ALARM' : 'NOW PLAYING'}
+            {usingFallback ? t('alarm_ringing.alarm') : t('alarm_ringing.now_playing')}
           </Text>
           <MarqueeText
             text={meta?.title ? `${channelName}, ${meta.title}` : channelName}
@@ -252,7 +263,7 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
           />
           {usingFallback && (
             <Text style={{ color: '#666', fontSize: 13, marginTop: 4 }}>
-              Playing offline — connect to Wi-Fi to hear your channel
+              {t('alarm_ringing.offline')}
             </Text>
           )}
         </View>
@@ -271,7 +282,7 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
             style={{ flex: 1, height: 56, borderRadius: 28, backgroundColor: '#222', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
           >
             <Ionicons name="moon" size={18} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>Snooze 5 min</Text>
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>{t('alarm_ringing.snooze')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

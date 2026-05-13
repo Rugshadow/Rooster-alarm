@@ -12,9 +12,11 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { supabase } from '../../lib/supabase';
+import { useTranslation } from 'react-i18next';
 
 export default function LoginEmailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,12 +36,12 @@ export default function LoginEmailScreen() {
     <SafeAreaView className="flex-1 bg-white" edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
         <View className="flex-1 px-6 justify-center">
-          <Text className="text-text-secondary text-[15px] mb-8">Log in with your email</Text>
+          <Text className="text-text-secondary text-[15px] mb-8">{t('auth.login_email_title')}</Text>
 
           <TextInput
             value={email}
             onChangeText={setEmail}
-            placeholder="Email address"
+            placeholder={t('auth.email')}
             placeholderTextColor={Colors.textSecondary}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -49,7 +51,7 @@ export default function LoginEmailScreen() {
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Password"
+            placeholder={t('auth.password')}
             placeholderTextColor={Colors.textSecondary}
             secureTextEntry
             className="bg-surface rounded-2xl px-4 py-4 text-[15px] text-text-primary mb-2"
@@ -66,7 +68,7 @@ export default function LoginEmailScreen() {
             style={{ backgroundColor: Colors.primary }}
           >
             <Text className="font-bold text-[16px] text-text-primary">
-              {loading ? 'Logging in...' : 'Log In'}
+              {loading ? t('auth.logging_in') : t('common.log_in')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -79,7 +81,7 @@ export default function LoginEmailScreen() {
           style={{ paddingBottom: 24 }}
         >
           <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-          <Text className="font-medium text-[15px] text-text-primary">Back</Text>
+          <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

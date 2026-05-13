@@ -1,4 +1,5 @@
 import '../global.css';
+import '../lib/i18n';
 import React, { useEffect, useRef, useState } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

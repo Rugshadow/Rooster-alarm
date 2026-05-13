@@ -1,14 +1,18 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import AccountSheet from '../../components/AccountSheet';
+import WelcomeModal from '../../components/WelcomeModal';
 
 function Header({ routeName }: { routeName: string }) {
   const { isLoggedIn, username } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
   const [showAccount, setShowAccount] = useState(false);
   const ringAnim = useRef(new Animated.Value(0)).current;
@@ -31,10 +35,10 @@ function Header({ routeName }: { routeName: string }) {
   });
 
   const titles: Record<string, string> = {
-    browse: 'Browse Alarm Feeds',
-    favorites: 'Favorites',
-    schedule: 'Scheduled Alarms',
-    uploads: username ?? 'Create',
+    browse: t('tabs.browse_title'),
+    favorites: t('tabs.favorites_title'),
+    schedule: t('tabs.schedule_title'),
+    uploads: username ?? t('tabs.create'),
   };
   const title = titles[routeName] ?? '';
 
@@ -67,7 +71,7 @@ function Header({ routeName }: { routeName: string }) {
               onPress={() => router.push('/auth/login')}
               className="rounded-full px-4 py-1.5 bg-white"
             >
-              <Text className="font-semibold text-[14px] text-text-primary">Log In</Text>
+              <Text className="font-semibold text-[14px] text-text-primary">{t('common.log_in')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -78,7 +82,25 @@ function Header({ routeName }: { routeName: string }) {
 }
 
 export default function TabLayout() {
+  const { isLoggedIn } = useAuth();
+  const { t } = useTranslation();
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    AsyncStorage.getItem('has_seen_welcome').then((val) => {
+      if (!val) setShowWelcome(true);
+    });
+  }, [isLoggedIn]);
+
+  const handleWelcomeDismiss = () => {
+    setShowWelcome(false);
+    AsyncStorage.setItem('has_seen_welcome', 'true');
+  };
+
   return (
+    <>
+    <WelcomeModal visible={showWelcome} onDismiss={handleWelcomeDismiss} />
     <Tabs
       screenOptions={({ route }) => ({
         header: () => {
@@ -101,31 +123,32 @@ export default function TabLayout() {
       <Tabs.Screen
         name="browse"
         options={{
-          title: 'Browse',
+          title: t('tabs.browse'),
           tabBarIcon: ({ color }) => <Ionicons name="grid" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="favorites"
         options={{
-          title: 'Favorites',
+          title: t('tabs.favorites'),
           tabBarIcon: ({ color }) => <Ionicons name="heart" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="schedule"
         options={{
-          title: 'Schedule',
+          title: t('tabs.schedule'),
           tabBarIcon: ({ color }) => <Ionicons name="alarm" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="uploads"
         options={{
-          title: 'Create',
+          title: t('tabs.create'),
           tabBarIcon: ({ color }) => <Ionicons name="mic" size={22} color={color} />,
         }}
       />
     </Tabs>
+    </>
   );
 }

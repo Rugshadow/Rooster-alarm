@@ -11,12 +11,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../lib/supabase';
 import AudioListRow from '../../components/AudioListRow';
 import RecordSheet from '../../components/RecordSheet';
 import CreateChannelSheet from '../../components/CreateChannelSheet';
 import MyChannelsSheet from '../../components/MyChannelsSheet';
 import ChannelSettingsSheet from '../../components/ChannelSettingsSheet';
+import AlarmRingingModal from '../../components/AlarmRingingModal';
 import { useTheme } from '../../hooks/useTheme';
 
 type Upload = {
@@ -33,14 +35,16 @@ type Upload = {
 };
 
 export default function UploadsScreen() {
-  const { isLoggedIn, session } = useAuth();
+  const { isLoggedIn, session, language } = useAuth();
   const { bg, surface, text, textSecondary } = useTheme();
+  const { t } = useTranslation();
   const { showAlert, alertProps } = useAppAlert();
   const router = useRouter();
   const [recordVisible, setRecordVisible] = useState(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [uploadsLoading, setUploadsLoading] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [previewClip, setPreviewClip] = useState<{ audioUrl: string; duration: number; title: string; audioId: string } | null>(null);
   const [hasChannels, setHasChannels] = useState<boolean | null>(null);
   const [createChannelVisible, setCreateChannelVisible] = useState(false);
   const [myChannelsVisible, setMyChannelsVisible] = useState(false);
@@ -49,6 +53,7 @@ export default function UploadsScreen() {
   const [channelName, setChannelName] = useState<string>('Your Channel');
   const [channelCover, setChannelCover] = useState<string | null>(null);
   const [channelGenre, setChannelGenre] = useState<string>('');
+  const [channelBio, setChannelBio] = useState<string>('');
   const [channelListeningOrder, setChannelListeningOrder] = useState<'newest' | 'oldest'>('newest');
   const [channelListeners, setChannelListeners] = useState(0);
   const [channelSettingsVisible, setChannelSettingsVisible] = useState(false);
@@ -85,14 +90,8 @@ export default function UploadsScreen() {
   }, [playerStatus.didJustFinish]);
 
   const handleRowPress = (item: Upload) => {
-    if (playingId === item.id) {
-      player.pause();
-      setPlayingId(null);
-      setPlayingUrl(null);
-    } else {
-      setPlayingId(item.id);
-      setPlayingUrl(item.audioUrl ?? null);
-    }
+    stopAudio();
+    setPreviewClip({ audioUrl: item.audioUrl ?? '', duration: item.duration, title: item.title, audioId: item.id });
   };
 
   useEffect(() => {
@@ -114,7 +113,7 @@ export default function UploadsScreen() {
 
     const { data: channels } = await supabase
       .from('channels')
-      .select('channel_id, name, cover_photo, genre')
+      .select('channel_id, name, cover_photo, genre, bio')
       .in('channel_id', channelIds);
     if (!channels || channels.length === 0) { setHasChannels(false); return; }
 
@@ -126,6 +125,7 @@ export default function UploadsScreen() {
     setChannelName((preferred as any).name);
     setChannelCover((preferred as any).cover_photo ?? null);
     setChannelGenre((preferred as any).genre ?? '');
+    setChannelBio((preferred as any).bio ?? '');
     setHasChannels(true);
 
     // Fetch extra fields separately so a missing column never breaks the main load
@@ -202,11 +202,11 @@ export default function UploadsScreen() {
     const asset = result.assets[0];
     const ext = (asset.name ?? asset.uri).split('.').pop()?.toLowerCase();
     if (ext !== 'wav') {
-      showAlert('Invalid file', 'Audio files must be .wav');
+      showAlert(t('uploads.invalid_file'), t('uploads.must_be_wav'));
       return;
     }
     if ((asset.size ?? 0) > 60 * 1024 * 1024) {
-      showAlert('File too long', 'You cannot upload an audio file that is more than 5 minutes in length.');
+      showAlert(t('uploads.file_too_long'), t('uploads.too_long_msg'));
       return;
     }
     setWavLoading(true);
@@ -214,11 +214,11 @@ export default function UploadsScreen() {
     setWavLoading(false);
     console.log('[wav] parsed duration:', duration, 'seconds');
     if (duration < 60) {
-      showAlert('File too short', 'Audio clips must be at least 1 minute in length.');
+      showAlert(t('uploads.file_too_short'), t('uploads.too_short_msg'));
       return;
     }
     if (duration > 300) {
-      showAlert('File too long', 'You cannot upload an audio file that is more than 5 minutes in length.');
+      showAlert(t('uploads.file_too_long'), t('uploads.too_long_msg'));
       return;
     }
     setWavPending({ uri: asset.uri, duration });
@@ -292,6 +292,7 @@ export default function UploadsScreen() {
           audio_file: audioUrlData.publicUrl,
           release_at: data.releaseDate?.toISOString() ?? null,
           genre: channelGenre,
+          language,
           num_of_plays: 0,
           duration_seconds: data.durationSeconds,
           channel_id: channelId,
@@ -299,7 +300,7 @@ export default function UploadsScreen() {
         .select('audio_id')
         .single();
       if (insertError || !audioFile) {
-        showAlert('Save failed', insertError?.message ?? 'Unknown error');
+        showAlert(t('uploads.save_failed'), insertError?.message ?? t('common.error'));
         console.error('[upload] insert error:', insertError);
         return;
       }
@@ -313,6 +314,22 @@ export default function UploadsScreen() {
         .single();
       const updatedUploads = [...((userData?.uploads as string[]) ?? []), (audioFile as any).audio_id];
       await supabase.from('users').update({ uploads: updatedUploads }).eq('user_id', session.user.id);
+
+      // Update channel's language array
+      if (language) {
+        const { data: chData } = await supabase
+          .from('channels')
+          .select('language')
+          .eq('channel_id', channelId)
+          .maybeSingle();
+        const currentLangs: string[] = (chData as any)?.language ?? [];
+        if (!currentLangs.includes(language)) {
+          await supabase
+            .from('channels')
+            .update({ language: [...currentLangs, language] } as any)
+            .eq('channel_id', channelId);
+        }
+      }
 
       // Replace placeholder with the real item, then re-sort so release order is preserved
       const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -331,7 +348,7 @@ export default function UploadsScreen() {
     } catch (e: any) {
       console.error('[upload] caught error:', e);
       setUploads((prev) => prev.filter((u) => u.id !== placeholderId));
-      showAlert('Error', e.message ?? 'Something went wrong');
+      showAlert(t('common.error'), e.message ?? t('common.something_went_wrong'));
     }
   };
 
@@ -385,7 +402,7 @@ export default function UploadsScreen() {
       if (thumbnailUrl !== undefined) updates.cover_photo = thumbnailUrl;
 
       const { error } = await supabase.from('audio_files').update(updates).eq('audio_id', uploadId);
-      if (error) { showAlert('Update failed', error.message); return; }
+      if (error) { showAlert(t('uploads.save_failed'), error.message); return; }
 
       setUploads((prev) => prev.map((u) => u.id === uploadId ? {
         ...u,
@@ -396,7 +413,7 @@ export default function UploadsScreen() {
         coverPhoto: thumbnailUrl !== undefined ? thumbnailUrl : u.coverPhoto,
       } : u));
     } catch (e: any) {
-      showAlert('Error', e.message ?? 'Something went wrong');
+      showAlert(t('common.error'), e.message ?? t('common.something_went_wrong'));
     }
   };
 
@@ -443,16 +460,16 @@ export default function UploadsScreen() {
     return (
       <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: bg }}>
         <Ionicons name="mic" size={64} color="#DFFF00" />
-        <Text className="text-[22px] font-bold text-text-primary mt-4 mb-2">Become a Creator</Text>
+        <Text className="text-[22px] font-bold text-text-primary mt-4 mb-2">{t('uploads.become_creator')}</Text>
         <Text className="text-text-secondary text-[15px] text-center mb-8">
-          Upload audio clips and let listeners wake up to your voice every morning
+          {t('uploads.creator_subtitle')}
         </Text>
         <TouchableOpacity
           onPress={() => router.push('/auth/login')}
           className="rounded-full px-8 py-3.5"
           style={{ backgroundColor: Colors.primary }}
         >
-          <Text className="font-bold text-[16px] text-text-primary">Log In to Upload</Text>
+          <Text className="font-bold text-[16px] text-text-primary">{t('uploads.log_in_to_upload')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -472,16 +489,16 @@ export default function UploadsScreen() {
         <AppAlert {...alertProps} />
         <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: bg }}>
           <Ionicons name="radio-outline" size={64} color={Colors.primary} />
-          <Text className="text-[20px] font-bold mt-4 mb-2 text-center" style={{ color: text }}>No channels yet</Text>
+          <Text className="text-[20px] font-bold mt-4 mb-2 text-center" style={{ color: text }}>{t('uploads.no_channels')}</Text>
           <Text className="text-[15px] text-center mb-8" style={{ color: textSecondary }}>
-            Create a channel to start uploading content for your listeners.
+            {t('uploads.no_channels_subtitle')}
           </Text>
           <TouchableOpacity
             onPress={() => { stopAudio(); setCreateChannelVisible(true); }}
             className="rounded-full px-8 py-3.5"
             style={{ backgroundColor: Colors.primary }}
           >
-            <Text className="font-bold text-[16px] text-text-primary">Create a Channel</Text>
+            <Text className="font-bold text-[16px] text-text-primary">{t('uploads.create_channel_button')}</Text>
           </TouchableOpacity>
         </View>
         <CreateChannelSheet
@@ -529,9 +546,15 @@ export default function UploadsScreen() {
                 <Ionicons name="chevron-down" size={16} color={Colors.textPrimary} />
               </TouchableOpacity>
               <Text className="text-text-secondary text-[13px] mt-1">
-                {uploads.length} upload{uploads.length !== 1 ? 's' : ''} · {channelListeners} listener{channelListeners !== 1 ? 's' : ''} · {channelGenre}
+                {t('uploads.upload', { count: uploads.length })} · {t('uploads.listener', { count: channelListeners })} · {channelGenre}
               </Text>
             </View>
+
+            {!!channelBio && (
+              <Text className="text-text-secondary text-[14px] text-center px-6 mb-4">
+                {channelBio}
+              </Text>
+            )}
 
             <View className="flex-row gap-3 px-4 mb-4">
               <TouchableOpacity
@@ -540,7 +563,7 @@ export default function UploadsScreen() {
                 style={{ backgroundColor: '#FF3B30' }}
               >
                 <Ionicons name="mic" size={18} color="white" />
-                <Text className="font-semibold text-[15px]" style={{ color: 'white' }}>Record</Text>
+                <Text className="font-semibold text-[15px]" style={{ color: 'white' }}>{t('uploads.record')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleWavUpload}
@@ -548,7 +571,7 @@ export default function UploadsScreen() {
                 style={{ backgroundColor: Colors.primary }}
               >
                 <Ionicons name="cloud-upload" size={18} color={Colors.textPrimary} />
-                <Text className="font-semibold text-[15px] text-text-primary">Upload .wav</Text>
+                <Text className="font-semibold text-[15px] text-text-primary">{t('uploads.upload_wav')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -558,11 +581,11 @@ export default function UploadsScreen() {
               style={{ backgroundColor: Colors.primary }}
             >
               <Ionicons name="settings-outline" size={16} color={Colors.textPrimary} />
-              <Text className="font-semibold text-[15px] text-text-primary">Channel Settings</Text>
+              <Text className="font-semibold text-[15px] text-text-primary">{t('uploads.channel_settings')}</Text>
             </TouchableOpacity>
 
             <Text className="text-[12px] font-semibold text-text-secondary tracking-wider px-4 mb-2">
-              YOUR UPLOADS
+              {t('uploads.your_uploads')}
             </Text>
             {uploadsLoading && <ActivityIndicator color={Colors.primary} style={{ marginVertical: 16 }} />}
           </View>
@@ -570,7 +593,7 @@ export default function UploadsScreen() {
         ListEmptyComponent={
           !uploadsLoading ? (
             <Text className="text-text-secondary text-[14px] text-center mt-4 px-6">
-              No uploads yet. Hit Record to get started!
+              {t('uploads.no_uploads')}
             </Text>
           ) : null
         }
@@ -581,7 +604,7 @@ export default function UploadsScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: text, fontSize: 15, fontWeight: '600' }}>{item.title}</Text>
-              <Text style={{ color: textSecondary, fontSize: 13, marginTop: 2 }}>Uploading file...</Text>
+              <Text style={{ color: textSecondary, fontSize: 13, marginTop: 2 }}>{t('uploads.uploading')}</Text>
             </View>
           </View>
         ) : (
@@ -642,6 +665,7 @@ export default function UploadsScreen() {
           setChannelName(ch.name);
           setChannelCover(ch.cover_photo);
           setChannelGenre((ch as any).genre ?? '');
+          setChannelBio((ch as any).bio ?? '');
           AsyncStorage.setItem('selected_channel_id', id);
         }}
         refreshTrigger={channelRefreshTrigger}
@@ -657,10 +681,21 @@ export default function UploadsScreen() {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}>
           <View style={{ backgroundColor: Colors.surface, borderRadius: 20, padding: 32, alignItems: 'center', gap: 16, width: 220 }}>
             <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={{ color: Colors.textPrimary, fontSize: 15, fontWeight: '600' }}>Loading audio...</Text>
+            <Text style={{ color: Colors.textPrimary, fontSize: 15, fontWeight: '600' }}>{t('uploads.loading_audio')}</Text>
           </View>
         </View>
       </Modal>
+
+      {previewClip && channelId && (
+        <AlarmRingingModal
+          visible={!!previewClip}
+          channelId={channelId}
+          channelName={channelName}
+          channelImageUrl={channelCover ?? undefined}
+          previewClip={previewClip}
+          onDismiss={() => setPreviewClip(null)}
+        />
+      )}
 
       {channelId && (
         <ChannelSettingsSheet
@@ -668,12 +703,14 @@ export default function UploadsScreen() {
           onClose={() => setChannelSettingsVisible(false)}
           channelId={channelId}
           currentCoverUrl={channelCover}
+          currentBio={channelBio}
           listeningOrder={channelListeningOrder}
           onCoverUpdated={(newUrl) => {
             setChannelCover(newUrl);
             setChannelSettingsVisible(false);
           }}
           onOrderChanged={setChannelListeningOrder}
+          onBioUpdated={setChannelBio}
         />
       )}
     </>

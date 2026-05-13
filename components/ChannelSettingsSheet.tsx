@@ -3,9 +3,11 @@ import {
   View,
   Text,
   Modal,
+  TextInput,
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import AppAlert from './AppAlert';
 import { useAppAlert } from '../hooks/useAppAlert';
@@ -17,6 +19,7 @@ import { Colors } from '../constants/colors';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
+import { useTranslation } from 'react-i18next';
 
 type ListeningOrder = 'newest' | 'oldest';
 
@@ -25,9 +28,11 @@ type Props = {
   onClose: () => void;
   channelId: string;
   currentCoverUrl: string | null;
+  currentBio: string;
   listeningOrder: ListeningOrder;
   onCoverUpdated: (newUrl: string) => void;
   onOrderChanged: (order: ListeningOrder) => void;
+  onBioUpdated: (bio: string) => void;
 };
 
 export default function ChannelSettingsSheet({
@@ -35,18 +40,26 @@ export default function ChannelSettingsSheet({
   onClose,
   channelId,
   currentCoverUrl,
+  currentBio,
   listeningOrder,
   onCoverUpdated,
   onOrderChanged,
+  onBioUpdated,
 }: Props) {
   const { session } = useAuth();
   const { bg, surface, text, textSecondary } = useTheme();
   const { showAlert, alertProps } = useAppAlert();
+  const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
   const [order, setOrder] = useState<ListeningOrder>(listeningOrder);
+  const [bio, setBio] = useState(currentBio);
+  const [savingBio, setSavingBio] = useState(false);
 
   useEffect(() => {
-    if (visible) setOrder(listeningOrder);
+    if (visible) {
+      setOrder(listeningOrder);
+      setBio(currentBio);
+    }
   }, [visible, channelId]);
 
   const handleOrderChange = async (newOrder: ListeningOrder) => {
@@ -117,6 +130,17 @@ export default function ChannelSettingsSheet({
     }
   };
 
+  const saveBio = async () => {
+    setSavingBio(true);
+    const { error } = await supabase
+      .from('channels')
+      .update({ bio } as any)
+      .eq('channel_id', channelId);
+    setSavingBio(false);
+    if (error) showAlert('Error', error.message);
+    else { onBioUpdated(bio); showAlert('Done', 'Description updated.'); }
+  };
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <AppAlert {...alertProps} />
@@ -124,12 +148,12 @@ export default function ChannelSettingsSheet({
         <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
-              Channel Settings
+              {t('channel_settings.title')}
             </Text>
           </View>
         </SafeAreaView>
 
-        <View className="flex-1 px-6 pt-8">
+        <ScrollView className="flex-1 px-6 pt-8">
           {/* Current cover preview */}
           <View className="items-center mb-8">
             {currentCoverUrl ? (
@@ -161,15 +185,56 @@ export default function ChannelSettingsSheet({
               <>
                 <Ionicons name="image-outline" size={20} color={Colors.textPrimary} />
                 <Text className="font-semibold text-[15px] text-text-primary">
-                  Upload New Cover Photo
+                  {t('channel_settings.upload_cover')}
                 </Text>
               </>
             )}
           </TouchableOpacity>
 
+          {/* Channel description */}
+          <Text style={{ color: textSecondary }} className="text-[12px] font-semibold tracking-wider mt-8 mb-2">
+            {t('channel_settings.description_label')}
+          </Text>
+          <TextInput
+            value={bio}
+            onChangeText={(v) => setBio(v.slice(0, 150))}
+            placeholder={t('channel_settings.description_placeholder')}
+            placeholderTextColor={Colors.textSecondary}
+            multiline
+            numberOfLines={3}
+            maxLength={150}
+            autoCapitalize="sentences"
+            style={{
+              backgroundColor: surface,
+              borderRadius: 16,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              fontSize: 15,
+              color: text,
+              minHeight: 80,
+              textAlignVertical: 'top',
+            }}
+          />
+          <View className="flex-row justify-between items-center mt-2 mb-2">
+            <Text style={{ color: bio.length > 130 ? (bio.length >= 150 ? '#E53935' : '#F59E0B') : textSecondary }} className="text-[12px]">
+              {bio.length}/150
+            </Text>
+            <TouchableOpacity
+              onPress={saveBio}
+              disabled={savingBio}
+              className="rounded-full px-5 py-2"
+              style={{ backgroundColor: Colors.primary, opacity: savingBio ? 0.6 : 1 }}
+            >
+              {savingBio
+                ? <ActivityIndicator size="small" color={Colors.textPrimary} />
+                : <Text className="font-semibold text-[14px] text-text-primary">{t('common.save')}</Text>
+              }
+            </TouchableOpacity>
+          </View>
+
           {/* Listening order */}
-          <Text style={{ color: textSecondary }} className="text-[12px] font-semibold tracking-wider mt-8 mb-3">
-            DEFAULT LISTENING ORDER
+          <Text style={{ color: textSecondary }} className="text-[12px] font-semibold tracking-wider mt-6 mb-3">
+            {t('channel_settings.order_label')}
           </Text>
           <View style={{ backgroundColor: surface }} className="rounded-2xl p-1 flex-row">
             {(['newest', 'oldest'] as ListeningOrder[]).map((mode) => (
@@ -183,15 +248,15 @@ export default function ChannelSettingsSheet({
                   className="font-semibold text-[14px]"
                   style={{ color: order === mode ? Colors.textPrimary : textSecondary }}
                 >
-                  {mode === 'newest' ? 'Newest content always' : 'Play from beginning'}
+                  {mode === 'newest' ? t('channel_settings.order_newest') : t('channel_settings.order_oldest')}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={{ color: textSecondary }} className="text-[13px] mt-3 leading-5">
-            Choose whether daily listeners always receive your newest content by default (good for news and current events), or if they start from your oldest content first (good for storytelling and educational content). You may determine the dafault setting for the channel, but listeners may adjust this to their own listening needs.
+          <Text style={{ color: textSecondary }} className="text-[13px] mt-3 mb-8 leading-5">
+            {t('channel_settings.order_explanation')}
           </Text>
-        </View>
+        </ScrollView>
 
         <View style={{ backgroundColor: Colors.primary, height: 56 }}>
           <TouchableOpacity
@@ -199,7 +264,7 @@ export default function ChannelSettingsSheet({
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}
           >
             <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-            <Text className="font-medium text-[15px] text-text-primary">Back</Text>
+            <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

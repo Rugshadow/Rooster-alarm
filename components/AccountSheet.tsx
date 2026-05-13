@@ -35,6 +35,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { useAlarmsContext } from '../contexts/AlarmsContext';
 import { supabase } from '../lib/supabase';
+import { useTranslation } from 'react-i18next';
 
 type Props = {
   visible: boolean;
@@ -44,6 +45,7 @@ type Props = {
 export default function AccountSheet({ visible, onClose }: Props) {
   const { signOut, username, session, timeFormat, setTimeFormat, colorScheme, setColorScheme, alarmVolume, setAlarmVolume } = useAuth();
   const { bg, surface, text, textSecondary } = useTheme();
+  const { t } = useTranslation();
   const { alarms, clearAllAlarms } = useAlarmsContext();
   const previewPlayer = useAudioPlayer(require('../assets/bell_chime.mp3'));
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -144,32 +146,32 @@ export default function AccountSheet({ visible, onClose }: Props) {
       onClose();
     } catch (e: any) {
       setDeleting(false);
-      showAlert('Error', e.message ?? 'Failed to delete account. Please try again.');
+      showAlert(t('common.error'), e.message ?? t('account.failed_delete'));
     }
   };
 
   const handleDeleteAllAlarms = () => {
     if (alarms.length === 0) {
-      showAlert('No Alarms', 'You have no alarms to delete.');
+      showAlert(t('account.no_alarms_title'), t('account.no_alarms_msg'));
       return;
     }
     showAlert(
-      'Delete All Alarms',
-      `This will delete all ${alarms.length} alarm${alarms.length !== 1 ? 's' : ''}. This cannot be undone.`,
+      t('account.delete_alarms_title'),
+      t('account.delete_alarms_msg', { count: alarms.length }),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete All', style: 'destructive', onPress: clearAllAlarms },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('account.delete_all'), style: 'destructive', onPress: clearAllAlarms },
       ]
     );
   };
 
   const handleDeleteAccount = () => {
     showAlert(
-      'Delete Account',
-      'This will permanently delete your account, all channels, and all uploaded audio. This cannot be undone.',
+      t('account.delete_account_title'),
+      t('account.delete_account_msg'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: performDeleteAccount },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.delete'), style: 'destructive', onPress: performDeleteAccount },
       ]
     );
   };
@@ -195,7 +197,7 @@ export default function AccountSheet({ visible, onClose }: Props) {
         <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
-              Settings
+              {t('account.title')}
             </Text>
           </View>
         </SafeAreaView>
@@ -203,9 +205,9 @@ export default function AccountSheet({ visible, onClose }: Props) {
         <ScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
           <View className="flex-row mt-0 rounded-2xl overflow-hidden" style={{ backgroundColor: surface }}>
             {[
-              { label: 'Uploads', value: uploadCount },
-              { label: 'Alarms', value: alarmCount },
-              { label: 'Favorites', value: savedCount },
+              { label: t('account.uploads'), value: uploadCount },
+              { label: t('account.alarms'), value: alarmCount },
+              { label: t('account.favorites'), value: savedCount },
             ].map(({ label, value }, i) => (
               <View
                 key={label}
@@ -218,12 +220,12 @@ export default function AccountSheet({ visible, onClose }: Props) {
           </View>
 
           <Text className="text-[12px] font-semibold tracking-wider mt-6 mb-3" style={{ color: textSecondary }}>
-            SETTINGS
+            {t('account.settings_label')}
           </Text>
 
           <View className="rounded-2xl px-4 pt-3 pb-2 mb-4" style={{ backgroundColor: surface }}>
             <View className="flex-row justify-between items-center mb-1">
-              <Text className="text-[13px] font-medium" style={{ color: textSecondary }}>Alarm Volume</Text>
+              <Text className="text-[13px] font-medium" style={{ color: textSecondary }}>{t('account.alarm_volume')}</Text>
               <Text className="text-[13px] font-semibold" style={{ color: text }}>{Math.round(sliderVolume * 100)}%</Text>
             </View>
             <Slider
@@ -264,7 +266,7 @@ export default function AccountSheet({ visible, onClose }: Props) {
                   className="font-medium text-[15px]"
                   style={{ color: timeFormat === fmt ? text : textSecondary }}
                 >
-                  {fmt === 'standard' ? '12 Hour' : '24 Hour'}
+                  {fmt === 'standard' ? t('account.hour_12') : t('account.hour_24')}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -288,17 +290,17 @@ export default function AccountSheet({ visible, onClose }: Props) {
                   className="font-medium text-[15px]"
                   style={{ color: colorScheme === scheme ? text : textSecondary }}
                 >
-                  {scheme === 'light' ? 'Light' : 'Dark'}
+                  {scheme === 'light' ? t('account.light') : t('account.dark')}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
           <Text className="text-[12px] font-semibold tracking-wider mt-2 mb-1" style={{ color: textSecondary }}>
-            FALLBACK ALARM
+            {t('account.fallback_alarm')}
           </Text>
           <Text className="text-[12px] mb-3" style={{ color: textSecondary }}>
-            Choose a sound that plays if internet connection is lost.
+            {t('account.fallback_subtitle')}
           </Text>
           <View className="rounded-2xl overflow-hidden mb-12" style={{ backgroundColor: surface }}>
             {/* Selected row — always visible, toggles expand */}
@@ -346,7 +348,7 @@ export default function AccountSheet({ visible, onClose }: Props) {
             className="rounded-full py-3.5 items-center mb-3"
             style={{ backgroundColor: surface }}
           >
-            <Text className="font-semibold text-[15px]" style={{ color: textSecondary }}>Privacy Policy</Text>
+            <Text className="font-semibold text-[15px]" style={{ color: textSecondary }}>{t('common.privacy_policy')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -354,7 +356,7 @@ export default function AccountSheet({ visible, onClose }: Props) {
             className="rounded-full py-3.5 items-center mb-3 flex-row justify-center gap-2"
             style={{ backgroundColor: surface }}
           >
-            <Text className="font-semibold text-[15px]" style={{ color: textSecondary }}>Account</Text>
+            <Text className="font-semibold text-[15px]" style={{ color: textSecondary }}>{t('account.account_section')}</Text>
             <Ionicons name={accountExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={textSecondary} />
           </TouchableOpacity>
 
@@ -364,13 +366,13 @@ export default function AccountSheet({ visible, onClose }: Props) {
                 onPress={() => { setAccountExpanded(false); signOut(); onClose(); }}
                 style={{ paddingHorizontal: 24, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: bg }}
               >
-                <Text style={{ fontSize: 15, fontWeight: '600', color: text, textAlign: 'center' }}>Log Out</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: text, textAlign: 'center' }}>{t('account.log_out')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => { setAccountExpanded(false); handleDeleteAllAlarms(); }}
                 style={{ paddingHorizontal: 24, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: bg }}
               >
-                <Text style={{ fontSize: 15, fontWeight: '600', color: colorScheme === 'dark' ? '#FF6B6B' : Colors.destructive, textAlign: 'center' }}>Delete All Alarms</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: colorScheme === 'dark' ? '#FF6B6B' : Colors.destructive, textAlign: 'center' }}>{t('account.delete_alarms')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => { setAccountExpanded(false); handleDeleteAccount(); }}
@@ -379,7 +381,7 @@ export default function AccountSheet({ visible, onClose }: Props) {
               >
                 {deleting
                   ? <ActivityIndicator size="small" color={colorScheme === 'dark' ? '#FF6B6B' : Colors.destructive} />
-                  : <Text style={{ fontSize: 15, fontWeight: '600', color: colorScheme === 'dark' ? '#FF6B6B' : Colors.destructive, textAlign: 'center' }}>Delete Account</Text>
+                  : <Text style={{ fontSize: 15, fontWeight: '600', color: colorScheme === 'dark' ? '#FF6B6B' : Colors.destructive, textAlign: 'center' }}>{t('account.delete_account')}</Text>
                 }
               </TouchableOpacity>
             </View>
@@ -393,7 +395,7 @@ export default function AccountSheet({ visible, onClose }: Props) {
             style={{ height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}
           >
             <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-            <Text className="font-medium text-[15px] text-text-primary">Back</Text>
+            <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

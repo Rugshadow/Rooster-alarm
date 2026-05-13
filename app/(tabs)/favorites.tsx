@@ -10,8 +10,10 @@ import ChannelAvatar from '../../components/ChannelAvatar';
 import AudioListRow from '../../components/AudioListRow';
 import ChannelSheet, { type Channel, type AudioClip } from '../../components/ChannelSheet';
 import AlarmSheet from '../../components/AlarmSheet';
+import AlarmRingingModal from '../../components/AlarmRingingModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../hooks/useTheme';
+import { useTranslation } from 'react-i18next';
 import { useAlarmsContext } from '../../contexts/AlarmsContext';
 import { supabase } from '../../lib/supabase';
 
@@ -21,12 +23,14 @@ type FavoriteClip = AudioClip & { channelName: string; channelId: string; imageU
 export default function FavoritesScreen() {
   const { isLoggedIn, session } = useAuth();
   const { bg } = useTheme();
+  const { t } = useTranslation();
   const { addAlarm } = useAlarmsContext();
   const { showAlert, alertProps } = useAppAlert();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('channels');
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const [previewClip, setPreviewClip] = useState<{ audioUrl: string; duration: number; title: string; audioId: string; channelId: string; channelName: string; channelImageUrl?: string } | null>(null);
   const player = useAudioPlayer(playingUrl ? { uri: playingUrl } : null);
   const playerStatus = useAudioPlayerStatus(player);
 
@@ -72,7 +76,7 @@ export default function FavoritesScreen() {
 
     const [channelsResult, audioResult] = await Promise.all([
       favChannelIds.length > 0
-        ? supabase.from('channels').select('channel_id, name, genre, cover_photo, listening_order').in('channel_id', favChannelIds)
+        ? supabase.from('channels').select('channel_id, name, genre, bio, cover_photo, listening_order').in('channel_id', favChannelIds)
         : Promise.resolve({ data: [], error: null }),
       favChannelIds.length > 0
         ? supabase.from('audio_files').select('*').in('channel_id', favChannelIds).order('created_at', { ascending: false })
@@ -99,7 +103,7 @@ export default function FavoritesScreen() {
         name: ch.name,
         genre: ch.genre ?? '',
         listeners: 0,
-        bio: '',
+        bio: (ch as any).bio ?? '',
         imageUrl: ch.cover_photo ?? undefined,
         uploads,
         listeningOrder: (ch.listening_order as 'newest' | 'oldest') ?? 'newest',
@@ -154,14 +158,14 @@ export default function FavoritesScreen() {
     return (
       <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: bg }}>
         <Text className="text-text-secondary text-[15px] text-center mb-8">
-          Log in to save your favorite channels here.
+          {t('favorites.login_prompt')}
         </Text>
         <TouchableOpacity
           onPress={() => router.push('/auth/login')}
           className="rounded-full px-8 py-3.5"
           style={{ backgroundColor: Colors.primary }}
         >
-          <Text className="font-bold text-[16px] text-text-primary">Log In</Text>
+          <Text className="font-bold text-[16px] text-text-primary">{t('common.log_in')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -193,7 +197,7 @@ export default function FavoritesScreen() {
               className="font-semibold text-[15px] capitalize"
               style={{ color: activeTab === tab ? Colors.textPrimary : Colors.textSecondary }}
             >
-              {tab}
+              {tab === 'clips' ? t('favorites.tab_alarms') : t('favorites.tab_channels')}
             </Text>
           </TouchableOpacity>
         ))}
@@ -202,7 +206,7 @@ export default function FavoritesScreen() {
       {activeTab === 'channels' ? (
         channels.length === 0 ? (
           <View className="flex-1 items-center justify-center">
-            <Text className="text-text-secondary text-[15px]">No favorite channels yet.</Text>
+            <Text className="text-text-secondary text-[15px]">{t('favorites.no_channels')}</Text>
           </View>
         ) : (
           <FlatList
@@ -225,7 +229,7 @@ export default function FavoritesScreen() {
       ) : (
         clips.length === 0 ? (
           <View className="flex-1 items-center justify-center">
-            <Text className="text-text-secondary text-[15px]">No favorite clips yet.</Text>
+            <Text className="text-text-secondary text-[15px]">{t('favorites.no_alarms')}</Text>
           </View>
         ) : (
           <FlatList
@@ -244,16 +248,15 @@ export default function FavoritesScreen() {
                 isFavorited
                 isHeard={heardClips.includes(item.id)}
                 imageUrl={item.imageUrl}
-                onPress={() => {
-                  if (playingId === item.id) {
-                    player.pause();
-                    setPlayingId(null);
-                    setPlayingUrl(null);
-                  } else {
-                    setPlayingId(item.id);
-                    setPlayingUrl(item.audioUrl ?? null);
-                  }
-                }}
+                onPress={() => setPreviewClip({
+                  audioUrl: item.audioUrl ?? '',
+                  duration: item.duration,
+                  title: item.title,
+                  audioId: item.id,
+                  channelId: item.channelId,
+                  channelName: item.channelName,
+                  channelImageUrl: item.imageUrl,
+                })}
                 onFavorite={() => handleUnfavoriteClip(item.id)}
               />
             )}
@@ -277,6 +280,17 @@ export default function FavoritesScreen() {
         onSave={(alarm) => { addAlarm(alarm); setAlarmSheetVisible(false); }}
         preselectedChannel={selectedChannel ?? undefined}
       />
+
+      {previewClip && (
+        <AlarmRingingModal
+          visible={!!previewClip}
+          channelId={previewClip.channelId}
+          channelName={previewClip.channelName}
+          channelImageUrl={previewClip.channelImageUrl}
+          previewClip={previewClip}
+          onDismiss={() => setPreviewClip(null)}
+        />
+      )}
     </View>
   );
 }

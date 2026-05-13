@@ -15,6 +15,7 @@ import {
 import { Colors } from '../constants/colors';
 import { useTheme } from '../hooks/useTheme';
 import FinalizeAudioSheet from './FinalizeAudioSheet';
+import { useTranslation } from 'react-i18next';
 
 type RecordState = 'idle' | 'recording' | 'stopped' | 'playing';
 
@@ -73,6 +74,7 @@ async function fetchWaveformSamples(url: string): Promise<number[]> {
 export default function RecordSheet({ visible, onClose, onSave, scheduledDates, editAudio }: Props) {
   const { bg, surface, text, textSecondary } = useTheme();
   const { showAlert, alertProps } = useAppAlert();
+  const { t } = useTranslation();
   const [state, setState] = useState<RecordState>('idle');
   const [elapsed, setElapsed] = useState(0);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
@@ -146,7 +148,7 @@ export default function RecordSheet({ visible, onClose, onSave, scheduledDates, 
   const startRecording = async () => {
     const { granted } = await requestRecordingPermissionsAsync();
     if (!granted) {
-      showAlert('Permission required', 'Microphone access is needed to record.');
+      showAlert(t('record.permission_required'), t('record.microphone_needed'));
       return;
     }
     hasNewRecordingRef.current = true;
@@ -215,11 +217,11 @@ export default function RecordSheet({ visible, onClose, onSave, scheduledDates, 
     if (hasNewRecordingRef.current) {
       const isEdit = !!editAudio;
       showAlert(
-        isEdit ? 'Cancel Editing' : 'Delete Recording',
-        isEdit ? 'Are you sure you want to cancel your changes?' : 'Are you sure you want to delete this recording?',
+        isEdit ? t('record.cancel_editing_title') : t('record.delete_recording_title'),
+        isEdit ? t('record.cancel_editing_msg') : t('record.delete_recording_msg'),
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: doClose },
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('common.delete'), style: 'destructive', onPress: doClose },
         ]
       );
     } else {
@@ -271,13 +273,13 @@ export default function RecordSheet({ visible, onClose, onSave, scheduledDates, 
       <SafeAreaView style={{ flex: 1, backgroundColor: bg }} edges={['left', 'right']}>
         <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
           <View className="px-6 pt-2 pb-3">
-            <Text className="text-[17px] font-semibold text-text-primary text-center">Record Alarm</Text>
+            <Text className="text-[17px] font-semibold text-text-primary text-center">{t('record.title')}</Text>
           </View>
         </SafeAreaView>
 
         <View className="flex-1 items-center justify-center px-6">
           <Text style={{ fontSize: 13, color: textSecondary, textAlign: 'center', marginBottom: 24 }}>
-            Alarms must be between 1 and 5 minutes in length.
+            {t('record.length_hint')}
           </Text>
           <View className="flex-row items-end mb-8 gap-1">
             <Text style={{ fontSize: 40, fontWeight: 'bold', color: text }}>
@@ -356,14 +358,14 @@ export default function RecordSheet({ visible, onClose, onSave, scheduledDates, 
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}
           >
             <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-            <Text className="font-medium text-[15px] text-text-primary">Back</Text>
+            <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
           </TouchableOpacity>
           <View style={{ width: 1, backgroundColor: Colors.primaryDark, marginVertical: 8 }} />
           <TouchableOpacity
             onPress={recordingUri && (editAudio && !hasNewRecording || elapsed >= 60) ? () => { if (state === 'playing') { player.pause(); setState('stopped'); } setFinalizeVisible(true); } : undefined}
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, opacity: recordingUri && (editAudio && !hasNewRecording || elapsed >= 60) ? 1 : 0.4 }}
           >
-            <Text className="font-medium text-[15px] text-text-primary">Next</Text>
+            <Text className="font-medium text-[15px] text-text-primary">{t('record.next')}</Text>
             <Ionicons name="chevron-forward" size={20} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>

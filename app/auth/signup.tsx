@@ -15,9 +15,11 @@ import { useRouter } from 'expo-router';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { supabase } from '../../lib/supabase';
+import { useTranslation } from 'react-i18next';
 
 export default function SignupScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -63,26 +65,26 @@ export default function SignupScreen() {
               style={{ width: 80, height: 80, borderRadius: 20, marginBottom: 16 }}
               resizeMode="cover"
             />
-            <Text className="text-[26px] font-bold text-text-primary">Create account</Text>
+            <Text className="text-[26px] font-bold text-text-primary">{t('auth.create_account_title')}</Text>
           </View>
 
           <TouchableOpacity
             className="flex-row items-center justify-center gap-3 bg-surface rounded-2xl py-4 mb-4"
           >
             <FontAwesome name="google" size={20} color="#4285F4" />
-            <Text className="font-semibold text-[16px] text-text-primary">Sign up with Google</Text>
+            <Text className="font-semibold text-[16px] text-text-primary">{t('auth.signup_google')}</Text>
           </TouchableOpacity>
 
           <View className="flex-row items-center gap-4 mb-4">
             <View className="flex-1 h-px bg-gray-200" />
-            <Text className="text-text-secondary text-[14px]">or</Text>
+            <Text className="text-text-secondary text-[14px]">{t('auth.or')}</Text>
             <View className="flex-1 h-px bg-gray-200" />
           </View>
 
           <TextInput
             value={email}
             onChangeText={setEmail}
-            placeholder="Email address"
+            placeholder={t('auth.email')}
             placeholderTextColor={Colors.textSecondary}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -92,7 +94,7 @@ export default function SignupScreen() {
           <TextInput
             value={username}
             onChangeText={setUsername}
-            placeholder="Username"
+            placeholder={t('auth.username')}
             placeholderTextColor={Colors.textSecondary}
             autoCapitalize="none"
             className="bg-surface rounded-2xl px-4 py-4 text-[15px] text-text-primary mb-3"
@@ -101,7 +103,7 @@ export default function SignupScreen() {
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Password"
+            placeholder={t('auth.password')}
             placeholderTextColor={Colors.textSecondary}
             secureTextEntry
             className="bg-surface rounded-2xl px-4 py-4 text-[15px] text-text-primary mb-2"
@@ -118,17 +120,17 @@ export default function SignupScreen() {
             style={{ backgroundColor: Colors.primary }}
           >
             <Text className="font-bold text-[16px] text-text-primary">
-              {loading ? 'Creating account...' : 'Create Account'}
+              {loading ? t('auth.creating_account') : t('auth.create_account_title')}
             </Text>
           </TouchableOpacity>
 
           <Text className="text-text-secondary text-[13px] text-center mb-8">
-            By creating an account, you agree to our{' '}
+            {t('auth.agree_prefix')}{' '}
             <Text
               style={{ color: Colors.primary, textDecorationLine: 'underline' }}
               onPress={() => setPrivacyVisible(true)}
             >
-              Privacy Policy
+              {t('common.privacy_policy')}
             </Text>
           </Text>
         </ScrollView>
@@ -141,7 +143,7 @@ export default function SignupScreen() {
           style={{ paddingBottom: 24 }}
         >
           <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-          <Text className="font-medium text-[15px] text-text-primary">Back</Text>
+          <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
 
