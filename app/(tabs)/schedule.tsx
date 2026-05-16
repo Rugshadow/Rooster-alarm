@@ -78,20 +78,13 @@ export default function ScheduleScreen() {
           <Text className="text-[15px] text-center mb-6" style={{ color: textSecondary }}>
             {t('schedule.no_alarms_subtext')}
           </Text>
-          {!isLoggedIn && (
-            <Text className="text-[15px] text-center mb-8" style={{ color: textSecondary }}>
-              {t('schedule.login_prompt')}
-            </Text>
-          )}
-          {isLoggedIn && (
-            <TouchableOpacity
-              onPress={() => setSheetVisible(true)}
-              className="rounded-full px-8 py-3.5"
-              style={{ backgroundColor: Colors.primary }}
-            >
-              <Text className="font-bold text-[16px] text-text-primary">{t('schedule.add_alarm')}</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            onPress={() => setSheetVisible(true)}
+            className="rounded-full px-8 py-3.5"
+            style={{ backgroundColor: Colors.primary }}
+          >
+            <Text className="font-bold text-[16px] text-text-primary">{t('schedule.add_alarm')}</Text>
+          </TouchableOpacity>
         </View>
         {alarmSheet}
       </>

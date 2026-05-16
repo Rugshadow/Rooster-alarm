@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   ScrollView,
+  FlatList,
 } from 'react-native';
 import AppAlert from './AppAlert';
 import { useAppAlert } from '../hooks/useAppAlert';
@@ -22,6 +23,8 @@ import { useTheme } from '../hooks/useTheme';
 import { useTranslation } from 'react-i18next';
 
 type ListeningOrder = 'newest' | 'oldest';
+
+const LANGUAGE_CODES = ['all', 'en', 'es', 'fr', 'de', 'zh', 'ja', 'ko', 'ar', 'hi', 'bn', 'ru', 'pt', 'id', 'fil', 'vi'] as const;
 
 type Props = {
   visible: boolean;
@@ -54,13 +57,35 @@ export default function ChannelSettingsSheet({
   const [order, setOrder] = useState<ListeningOrder>(listeningOrder);
   const [bio, setBio] = useState(currentBio);
   const [savingBio, setSavingBio] = useState(false);
+  const [channelLanguage, setChannelLanguage] = useState<string>('en');
+  const [languagePickerVisible, setLanguagePickerVisible] = useState(false);
 
   useEffect(() => {
     if (visible) {
       setOrder(listeningOrder);
       setBio(currentBio);
+      fetchLanguage();
     }
   }, [visible, channelId]);
+
+  const fetchLanguage = async () => {
+    const { data } = await supabase
+      .from('channels')
+      .select('language')
+      .eq('channel_id', channelId)
+      .maybeSingle();
+    const langs: string[] = (data as any)?.language ?? [];
+    setChannelLanguage(langs[0] ?? 'en');
+  };
+
+  const handleLanguageChange = async (code: string) => {
+    setChannelLanguage(code);
+    setLanguagePickerVisible(false);
+    await supabase
+      .from('channels')
+      .update({ language: [code] } as any)
+      .eq('channel_id', channelId);
+  };
 
   const handleOrderChange = async (newOrder: ListeningOrder) => {
     setOrder(newOrder);
@@ -232,6 +257,18 @@ export default function ChannelSettingsSheet({
             </TouchableOpacity>
           </View>
 
+          {/* Channel language */}
+          <Text style={{ color: textSecondary }} className="text-[12px] font-semibold tracking-wider mt-6 mb-2">
+            {t('channel_settings.language_label')}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setLanguagePickerVisible(true)}
+            style={{ backgroundColor: surface, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <Text style={{ fontSize: 15, color: text }}>{t(`languages.${channelLanguage}`)}</Text>
+            <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} />
+          </TouchableOpacity>
+
           {/* Listening order */}
           <Text style={{ color: textSecondary }} className="text-[12px] font-semibold tracking-wider mt-6 mb-3">
             {t('channel_settings.order_label')}
@@ -268,6 +305,50 @@ export default function ChannelSettingsSheet({
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+
+      <Modal visible={languagePickerVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setLanguagePickerVisible(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: bg }} edges={['left', 'right']}>
+          <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+            <View className="px-6 pt-2 pb-3">
+              <Text className="text-[17px] font-semibold text-text-primary text-center">
+                {t('channel_settings.language_label')}
+              </Text>
+            </View>
+          </SafeAreaView>
+          <FlatList
+            data={LANGUAGE_CODES}
+            keyExtractor={(item) => item}
+            renderItem={({ item: code }) => (
+              <TouchableOpacity
+                onPress={() => handleLanguageChange(code)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 24,
+                  paddingVertical: 16,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#F0F0F0',
+                }}
+              >
+                <Text style={{ fontSize: 16, color: channelLanguage === code ? Colors.primary : text }}>
+                  {t(`languages.${code}`)}
+                </Text>
+                {channelLanguage === code && <Ionicons name="checkmark" size={20} color={Colors.primary} />}
+              </TouchableOpacity>
+            )}
+          />
+          <View style={{ backgroundColor: Colors.primary, height: 56 }}>
+            <TouchableOpacity
+              onPress={() => setLanguagePickerVisible(false)}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+            >
+              <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
+              <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </Modal>
   );
 }

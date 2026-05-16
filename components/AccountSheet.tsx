@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  FlatList,
   NativeModules,
 } from 'react-native';
 import AppAlert from './AppAlert';
@@ -43,7 +44,7 @@ type Props = {
 };
 
 export default function AccountSheet({ visible, onClose }: Props) {
-  const { signOut, username, session, timeFormat, setTimeFormat, colorScheme, setColorScheme, alarmVolume, setAlarmVolume } = useAuth();
+  const { signOut, username, session, timeFormat, setTimeFormat, colorScheme, setColorScheme, alarmVolume, setAlarmVolume, creatorMode, setCreatorMode, language, setLanguage } = useAuth();
   const { bg, surface, text, textSecondary } = useTheme();
   const { t } = useTranslation();
   const { alarms, clearAllAlarms } = useAlarmsContext();
@@ -61,6 +62,9 @@ export default function AccountSheet({ visible, onClose }: Props) {
   const [fallbackExpanded, setFallbackExpanded] = useState(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
   const [accountExpanded, setAccountExpanded] = useState(false);
+  const [languagePickerVisible, setLanguagePickerVisible] = useState(false);
+
+  const LANGUAGE_CODES = ['en', 'es', 'fr', 'de', 'zh', 'ja', 'ko', 'ar', 'hi', 'bn', 'ru', 'pt', 'id', 'fil', 'vi'] as const;
 
   useEffect(() => {
     if (visible) {
@@ -197,7 +201,7 @@ export default function AccountSheet({ visible, onClose }: Props) {
         <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
-              {t('account.title')}
+              {username ? `${username}'s Settings` : t('account.title')}
             </Text>
           </View>
         </SafeAreaView>
@@ -295,6 +299,42 @@ export default function AccountSheet({ visible, onClose }: Props) {
               </TouchableOpacity>
             ))}
           </View>
+
+          <Text className="text-[12px] font-semibold tracking-wider mt-6 mb-3" style={{ color: textSecondary }}>
+            {t('account.creator_mode')}
+          </Text>
+          <View className="rounded-2xl p-1 flex-row mb-6" style={{ backgroundColor: surface }}>
+            {([false, true] as const).map((on) => (
+              <TouchableOpacity
+                key={String(on)}
+                onPress={() => setCreatorMode(on)}
+                className="flex-1 py-2.5 rounded-xl items-center"
+                style={{
+                  backgroundColor: creatorMode === on ? bg : 'transparent',
+                  shadowColor: creatorMode === on ? '#000' : 'transparent',
+                  shadowOpacity: creatorMode === on ? 0.08 : 0,
+                  shadowRadius: 4,
+                  elevation: creatorMode === on ? 2 : 0,
+                }}
+              >
+                <Text className="font-medium text-[15px]" style={{ color: creatorMode === on ? text : textSecondary }}>
+                  {on ? 'On' : 'Off'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text className="text-[12px] font-semibold tracking-wider mt-6 mb-2" style={{ color: textSecondary }}>
+            {t('account.language_label')}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setLanguagePickerVisible(true)}
+            className="rounded-2xl px-4 mb-6"
+            style={{ backgroundColor: surface, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <Text style={{ fontSize: 15, color: text }}>{t(`languages.${language}`)}</Text>
+            <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} />
+          </TouchableOpacity>
 
           <Text className="text-[12px] font-semibold tracking-wider mt-2 mb-1" style={{ color: textSecondary }}>
             {t('account.fallback_alarm')}
@@ -396,6 +436,50 @@ export default function AccountSheet({ visible, onClose }: Props) {
           >
             <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
             <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </Modal>
+
+    <Modal visible={languagePickerVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setLanguagePickerVisible(false)}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: bg }} edges={['left', 'right']}>
+        <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+          <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 12 }}>
+            <Text style={{ fontSize: 17, fontWeight: '600', color: Colors.textPrimary, textAlign: 'center' }}>
+              {t('account.language_label')}
+            </Text>
+          </View>
+        </SafeAreaView>
+        <FlatList
+          data={LANGUAGE_CODES}
+          keyExtractor={(item) => item}
+          renderItem={({ item: code }) => (
+            <TouchableOpacity
+              onPress={() => { setLanguage(code); setLanguagePickerVisible(false); }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 24,
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: surface,
+              }}
+            >
+              <Text style={{ fontSize: 16, color: language === code ? Colors.primary : text }}>
+                {t(`languages.${code}`)}
+              </Text>
+              {language === code && <Ionicons name="checkmark" size={20} color={Colors.primary} />}
+            </TouchableOpacity>
+          )}
+        />
+        <View style={{ backgroundColor: Colors.primary, height: 56 }}>
+          <TouchableOpacity
+            onPress={() => setLanguagePickerVisible(false)}
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+          >
+            <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
+            <Text style={{ fontWeight: '500', fontSize: 15, color: Colors.textPrimary }}>{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

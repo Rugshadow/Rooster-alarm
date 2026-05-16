@@ -10,6 +10,8 @@ const { IntentData } = NativeModules;
 const VOLUME_KEY = 'alarmVolume';
 const TIME_FORMAT_KEY = 'timeFormat';
 const COLOR_SCHEME_KEY = 'colorScheme';
+const CREATOR_MODE_KEY = 'creatorMode';
+const LANGUAGE_OVERRIDE_KEY = 'languageOverride';
 
 type TimeFormat = 'standard' | 'military';
 type ColorScheme = 'light' | 'dark';
@@ -20,12 +22,15 @@ type AuthContextType = {
   isLoggedIn: boolean;
   username: string | null;
   language: string;
+  setLanguage: (lang: string) => void;
   timeFormat: TimeFormat;
   setTimeFormat: (fmt: TimeFormat) => void;
   colorScheme: ColorScheme;
   setColorScheme: (scheme: ColorScheme) => void;
   alarmVolume: number;
   setAlarmVolume: (vol: number) => void;
+  creatorMode: boolean;
+  setCreatorMode: (on: boolean) => void;
   signOut: () => void;
   refreshUser: () => void;
   setUsername: (username: string) => void;
@@ -37,12 +42,15 @@ const AuthContext = createContext<AuthContextType>({
   isLoggedIn: false,
   username: null,
   language: 'en',
+  setLanguage: () => {},
   timeFormat: 'standard',
   setTimeFormat: () => {},
   colorScheme: 'light',
   setColorScheme: () => {},
   alarmVolume: 1,
   setAlarmVolume: () => {},
+  creatorMode: false,
+  setCreatorMode: () => {},
   signOut: () => {},
   refreshUser: () => {},
   setUsername: () => {},
@@ -52,10 +60,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState<string | null>(null);
-  const [language, setLanguage] = useState<string>('en');
+  const [language, setLanguageState] = useState<string>('en');
   const [timeFormatState, setTimeFormatState] = useState<TimeFormat>('standard');
   const [colorSchemeState, setColorSchemeState] = useState<ColorScheme>('light');
   const [alarmVolumeState, setAlarmVolumeState] = useState<number>(1);
+  const [creatorModeState, setCreatorModeState] = useState<boolean>(false);
 
   const fetchUserPrefs = async (userId: string, sess?: any) => {
     const { data: rows } = await supabase
@@ -72,14 +81,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     if (data?.time_format === 'military' || data?.time_format === 'standard') {
       setTimeFormatState(data.time_format);
+    } else {
+      const stored = await AsyncStorage.getItem(TIME_FORMAT_KEY);
+      if (stored === 'standard' || stored === 'military') setTimeFormatState(stored);
     }
     if (data?.color_scheme === 'dark' || data?.color_scheme === 'light') {
       setColorSchemeState(data.color_scheme);
+    } else {
+      const stored = await AsyncStorage.getItem(COLOR_SCHEME_KEY);
+      if (stored === 'light' || stored === 'dark') setColorSchemeState(stored);
     }
 
-    // Sync device language to Supabase if it has changed
+    // Use language override if set, otherwise fall back to device locale
     const deviceLanguage = Localization.getLocales()?.[0]?.languageCode ?? 'en';
-    setLanguage(deviceLanguage);
+    const override = await AsyncStorage.getItem(LANGUAGE_OVERRIDE_KEY);
+    setLanguageState(override ?? deviceLanguage);
     if (deviceLanguage && data?.language !== deviceLanguage) {
       supabase.from('users').update({ language: deviceLanguage } as any).eq('user_id', userId).then(() => {});
     }
@@ -107,11 +123,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try { IntentData?.setAlarmVolume?.(vol); } catch {}
   };
 
+  const setCreatorMode = (on: boolean) => {
+    setCreatorModeState(on);
+    AsyncStorage.setItem(CREATOR_MODE_KEY, on ? 'true' : 'false');
+  };
+
+  const setLanguage = (lang: string) => {
+    setLanguageState(lang);
+    AsyncStorage.setItem(LANGUAGE_OVERRIDE_KEY, lang);
+  };
+
   useEffect(() => {
-    AsyncStorage.multiGet([VOLUME_KEY, TIME_FORMAT_KEY, COLOR_SCHEME_KEY]).then((pairs) => {
+    AsyncStorage.multiGet([VOLUME_KEY, TIME_FORMAT_KEY, COLOR_SCHEME_KEY, CREATOR_MODE_KEY, LANGUAGE_OVERRIDE_KEY]).then((pairs) => {
       const volume = pairs[0][1];
       const timeFormat = pairs[1][1];
       const colorScheme = pairs[2][1];
+      const creatorMode = pairs[3][1];
+      const langOverride = pairs[4][1];
       if (volume !== null) {
         const parsed = parseFloat(volume);
         if (!isNaN(parsed)) {
@@ -124,6 +152,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       if (colorScheme === 'light' || colorScheme === 'dark') {
         setColorSchemeState(colorScheme);
+      }
+      if (creatorMode !== null) {
+        setCreatorModeState(creatorMode === 'true');
+      }
+      if (langOverride !== null) {
+        setLanguageState(langOverride);
+      } else {
+        const deviceLanguage = Localization.getLocales()?.[0]?.languageCode ?? 'en';
+        setLanguageState(deviceLanguage);
       }
     });
   }, []);
@@ -161,12 +198,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoggedIn: !!session,
       username,
       language,
+      setLanguage,
       timeFormat: timeFormatState,
       setTimeFormat,
       colorScheme: colorSchemeState,
       setColorScheme,
       alarmVolume: alarmVolumeState,
       setAlarmVolume,
+      creatorMode: creatorModeState,
+      setCreatorMode,
       signOut: () => { stopAllAudio(); supabase.auth.signOut(); },
       refreshUser: () => { if (session) fetchUserPrefs(session.user.id, session); },
       setUsername: (u: string) => setUsername(u),

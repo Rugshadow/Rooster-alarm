@@ -418,7 +418,7 @@ export default function UploadsScreen() {
   };
 
   const saveCreateChannel = async (
-    { name, genre, description, coverPhotoUri, coverPhotoBase64 }: { name: string; genre: string; description: string; coverPhotoUri?: string; coverPhotoBase64?: string },
+    { name, genre, description, coverPhotoUri, coverPhotoBase64, language: channelLanguage }: { name: string; genre: string; description: string; coverPhotoUri?: string; coverPhotoBase64?: string; language: string },
     onDone?: () => void,
   ) => {
     if (!session) return;
@@ -436,7 +436,7 @@ export default function UploadsScreen() {
     }
     const { data: channel, error } = await supabase
       .from('channels')
-      .insert({ owner_id: session.user.id, name, genre, bio: description || null, cover_photo: coverUrl })
+      .insert({ owner_id: session.user.id, name, genre, bio: description || null, cover_photo: coverUrl, language: [channelLanguage] })
       .select('channel_id')
       .single();
     if (error || !channel) return;

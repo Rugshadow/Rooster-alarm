@@ -7,29 +7,36 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../constants/colors';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
 
 const GENRES = [
   'Music', 'News', 'Comedy', 'Ambient', 'Motivational',
   'Religious', 'Education', 'Storytelling', 'Fitness', 'Alternative',
 ];
 
+const LANGUAGE_CODES = ['all', 'en', 'es', 'fr', 'de', 'zh', 'ja', 'ko', 'ar', 'hi', 'bn', 'ru', 'pt', 'id', 'fil', 'vi'] as const;
+
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onSave: (data: { name: string; genre: string; description: string; coverPhotoUri?: string; coverPhotoBase64?: string }) => void;
+  onSave: (data: { name: string; genre: string; description: string; coverPhotoUri?: string; coverPhotoBase64?: string; language: string }) => void;
 };
 
 export default function CreateChannelSheet({ visible, onClose, onSave }: Props) {
   const { t } = useTranslation();
+  const { language: deviceLanguage } = useAuth();
   const [name, setName] = useState('');
   const [genre, setGenre] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(deviceLanguage ?? 'en');
+  const [languagePickerVisible, setLanguagePickerVisible] = useState(false);
   const [coverUri, setCoverUri] = useState<string | undefined>();
   const [coverBase64, setCoverBase64] = useState<string | undefined>();
 
@@ -55,6 +62,7 @@ export default function CreateChannelSheet({ visible, onClose, onSave }: Props) 
     setName('');
     setGenre('');
     setDescription('');
+    setSelectedLanguage(deviceLanguage ?? 'en');
     setCoverUri(undefined);
     setCoverBase64(undefined);
   };
@@ -66,7 +74,7 @@ export default function CreateChannelSheet({ visible, onClose, onSave }: Props) 
 
   const handleSave = () => {
     if (!isComplete) return;
-    onSave({ name: name.trim(), genre, description: description.trim(), coverPhotoUri: coverUri, coverPhotoBase64: coverBase64 });
+    onSave({ name: name.trim(), genre, description: description.trim(), coverPhotoUri: coverUri, coverPhotoBase64: coverBase64, language: selectedLanguage });
     reset();
     onClose();
   };
@@ -132,7 +140,7 @@ export default function CreateChannelSheet({ visible, onClose, onSave }: Props) 
           </View>
           <TextInput
             value={description}
-            onChangeText={(t) => setDescription(t.slice(0, 150))}
+            onChangeText={(v) => setDescription(v.slice(0, 150))}
             placeholder={t('create_channel.description_placeholder')}
             placeholderTextColor={Colors.textSecondary}
             className="bg-surface rounded-2xl px-4 py-3.5 text-[15px] text-text-primary"
@@ -169,6 +177,18 @@ export default function CreateChannelSheet({ visible, onClose, onSave }: Props) 
             ))}
           </View>
 
+          {/* Language */}
+          <Text className="text-[12px] font-semibold text-text-secondary tracking-wider mt-6 mb-2">
+            {t('create_channel.language_label')}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setLanguagePickerVisible(true)}
+            className="bg-surface rounded-2xl px-4 py-3.5 flex-row items-center justify-between"
+          >
+            <Text className="text-[15px] text-text-primary">{t(`languages.${selectedLanguage}`)}</Text>
+            <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} />
+          </TouchableOpacity>
+
           <TouchableOpacity
             onPress={handleSave}
             disabled={!isComplete}
@@ -194,6 +214,50 @@ export default function CreateChannelSheet({ visible, onClose, onSave }: Props) 
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+
+      <Modal visible={languagePickerVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setLanguagePickerVisible(false)}>
+        <SafeAreaView className="flex-1 bg-white" edges={['left', 'right']}>
+          <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+            <View className="px-6 pt-2 pb-3">
+              <Text className="text-[17px] font-semibold text-text-primary text-center">
+                {t('create_channel.language_label')}
+              </Text>
+            </View>
+          </SafeAreaView>
+          <FlatList
+            data={LANGUAGE_CODES}
+            keyExtractor={(item) => item}
+            renderItem={({ item: code }) => (
+              <TouchableOpacity
+                onPress={() => { setSelectedLanguage(code); setLanguagePickerVisible(false); }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 24,
+                  paddingVertical: 16,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#F0F0F0',
+                }}
+              >
+                <Text style={{ fontSize: 16, color: selectedLanguage === code ? Colors.primary : '#1A1A1A' }}>
+                  {t(`languages.${code}`)}
+                </Text>
+                {selectedLanguage === code && <Ionicons name="checkmark" size={20} color={Colors.primary} />}
+              </TouchableOpacity>
+            )}
+          />
+          <View style={{ backgroundColor: Colors.primary, height: 56 }}>
+            <TouchableOpacity
+              onPress={() => setLanguagePickerVisible(false)}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+            >
+              <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
+              <Text className="font-medium text-[15px] text-text-primary">{t('common.back')}</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </Modal>
   );
 }

@@ -12,7 +12,7 @@ export function useChannels(language?: string) {
 
   const load = async () => {
     let channelsQuery = supabase.from('channels').select('channel_id, name, genre, bio, cover_photo, owner_id, listening_order');
-    if (language) channelsQuery = channelsQuery.contains('language', [language]);
+    if (language) channelsQuery = (channelsQuery as any).or(`language.cs.{"${language}"},language.cs.{"all"}`);
 
     const [{ data: channelRows }, { data: audioFiles }, { data: users }] = await Promise.all([
       channelsQuery,

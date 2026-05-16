@@ -96,6 +96,8 @@
     "hour_24": "24 Hour",
     "light": "Light",
     "dark": "Dark",
+    "creator_mode": "CREATOR MODE",
+    "language_label": "CONTENT LANGUAGE",
     "fallback_alarm": "FALLBACK ALARM",
     "fallback_subtitle": "Choose a sound that plays if internet connection is lost.",
     "account_section": "Account",
@@ -152,7 +154,8 @@
     "order_newest": "Newest content always",
     "order_oldest": "Play from beginning",
     "order_explanation": "Choose whether daily listeners always receive your newest content by default (good for news and current events), or if they start from your oldest content first (good for storytelling and educational content). You may determine the default setting for the channel, but listeners may adjust this to their own listening needs.",
-    "upload_cover": "Upload New Cover Photo"
+    "upload_cover": "Upload New Cover Photo",
+    "language_label": "CHANNEL LANGUAGE"
   },
   "channel_sheet": {
     "listeners_genre": "{{listeners}} listeners · {{genre}}",
@@ -176,6 +179,7 @@
     "description_label": "DESCRIPTION",
     "description_placeholder": "Tell listeners what your channel is about...",
     "genre_label": "GENRE",
+    "language_label": "LANGUAGE",
     "create_button": "Create Channel"
   },
   "finalize_audio": {
@@ -220,6 +224,24 @@
     "storytelling": "Storytelling",
     "fitness": "Fitness",
     "alternative": "Alternative"
+  },
+  "languages": {
+    "all": "All Languages",
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "zh": "Mandarin Chinese",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "ar": "Arabic",
+    "hi": "Hindi",
+    "bn": "Bengali",
+    "ru": "Russian",
+    "pt": "Portuguese",
+    "id": "Indonesian",
+    "fil": "Filipino",
+    "vi": "Vietnamese"
   },
   "welcome": {
     "title": "Welcome to Peace Alarm!",

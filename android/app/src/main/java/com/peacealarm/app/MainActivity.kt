@@ -23,10 +23,21 @@ class MainActivity : ReactActivity() {
     if (hasAlarm) {
       android.util.Log.d("PeaceAlarm", "MainActivity.onCreate: calling showOnLockScreen()")
       showOnLockScreen()
+      hideAlarmNotification()
     } else {
       android.util.Log.d("PeaceAlarm", "MainActivity.onCreate: no alarm, skipping showOnLockScreen()")
     }
     super.onCreate(null)
+  }
+
+  private fun hideAlarmNotification() {
+    try {
+      startService(Intent(this, AlarmService::class.java).apply {
+        action = AlarmService.ACTION_HIDE_NOTIFICATION
+      })
+    } catch (e: Exception) {
+      android.util.Log.w("PeaceAlarm", "hideAlarmNotification failed: ${e.message}")
+    }
   }
 
   private fun showOnLockScreen() {
@@ -55,7 +66,7 @@ class MainActivity : ReactActivity() {
     setIntent(intent)
     val hasAlarm = intent.hasExtra("alarmChannelId") ||
       getSharedPreferences("peace_alarm_prefs", MODE_PRIVATE).getString("alarm_channel_id", null) != null
-    if (hasAlarm) showOnLockScreen()
+    if (hasAlarm) { showOnLockScreen(); hideAlarmNotification() }
     try {
       val reactContext = (applicationContext as? MainApplication)
         ?.reactNativeHost?.reactInstanceManager?.currentReactContext

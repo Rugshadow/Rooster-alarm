@@ -1,10 +1,13 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { scheduleAlarmNotifications, cancelAlarmNotifications } from '../lib/alarmScheduler';
 import type { AlarmData } from '../components/AlarmSheet';
 
 export type SetAlarm = AlarmData & { id: string };
+
+const OFFLINE_KEY = 'offlineAlarms';
 
 type AlarmsContextValue = {
   alarms: SetAlarm[];
@@ -16,6 +19,10 @@ type AlarmsContextValue = {
   toggleAlarm: (id: string) => Promise<void>;
   deactivateByChannelId: (channelId: string) => Promise<void>;
   refetch: () => Promise<void>;
+  mergePromptVisible: boolean;
+  offlinePendingCount: number;
+  uploadOfflineAlarms: () => Promise<void>;
+  discardOfflineAlarms: () => Promise<void>;
 };
 
 const AlarmsContext = createContext<AlarmsContextValue | null>(null);
@@ -23,10 +30,27 @@ const AlarmsContext = createContext<AlarmsContextValue | null>(null);
 export function AlarmsProvider({ children }: { children: React.ReactNode }) {
   const { session, isLoggedIn } = useAuth();
   const [alarms, setAlarms] = useState<SetAlarm[]>([]);
+  const [offlinePending, setOfflinePending] = useState<SetAlarm[]>([]);
+  const [mergePromptVisible, setMergePromptVisible] = useState(false);
+  const isLoggedInRef = useRef(isLoggedIn);
+  useEffect(() => { isLoggedInRef.current = isLoggedIn; }, [isLoggedIn]);
 
   useEffect(() => {
-    if (isLoggedIn && session) fetchAlarms();
+    if (isLoggedIn && session) {
+      fetchAlarms();
+    } else {
+      loadOfflineAlarms();
+    }
   }, [isLoggedIn, session]);
+
+  const loadOfflineAlarms = async () => {
+    const raw = await AsyncStorage.getItem(OFFLINE_KEY);
+    setAlarms(raw ? JSON.parse(raw) : []);
+  };
+
+  const saveOfflineAlarms = async (updated: SetAlarm[]) => {
+    await AsyncStorage.setItem(OFFLINE_KEY, JSON.stringify(updated));
+  };
 
   const fetchAlarms = async () => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -37,10 +61,19 @@ export function AlarmsProvider({ children }: { children: React.ReactNode }) {
       .eq('user_id', currentSession.user.id)
       .single();
     const raw = (data?.set_alarms as Record<string, SetAlarm> | null) ?? {};
-    setAlarms(Object.values(raw));
+    const accountAlarms = Object.values(raw);
+    setAlarms(accountAlarms);
+
+    // Check for offline alarms saved while logged out
+    const stored = await AsyncStorage.getItem(OFFLINE_KEY);
+    const offline: SetAlarm[] = stored ? JSON.parse(stored) : [];
+    if (offline.length > 0) {
+      setOfflinePending(offline);
+      setMergePromptVisible(true);
+    }
   };
 
-  const persistAlarms = async (updated: SetAlarm[]) => {
+  const persistToSupabase = async (updated: SetAlarm[]) => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     if (!currentSession) return;
     const asObject = Object.fromEntries(updated.map((a) => [a.id, a]));
@@ -48,6 +81,14 @@ export function AlarmsProvider({ children }: { children: React.ReactNode }) {
       .from('users')
       .update({ set_alarms: asObject } as any)
       .eq('user_id', currentSession.user.id);
+  };
+
+  const persist = (updated: SetAlarm[]) => {
+    if (isLoggedInRef.current) {
+      persistToSupabase(updated);
+    } else {
+      saveOfflineAlarms(updated);
+    }
   };
 
   const addAlarm = async (data: AlarmData) => {
@@ -60,7 +101,7 @@ export function AlarmsProvider({ children }: { children: React.ReactNode }) {
     }
     const updated = [...alarms, newAlarm];
     setAlarms(updated);
-    persistAlarms(updated);
+    persist(updated);
   };
 
   const removeAlarm = (id: string) => {
@@ -74,7 +115,7 @@ export function AlarmsProvider({ children }: { children: React.ReactNode }) {
     }
     const updated = alarms.filter((a) => a.id !== id);
     setAlarms(updated);
-    persistAlarms(updated);
+    persist(updated);
   };
 
   const clearAllAlarms = async () => {
@@ -82,7 +123,7 @@ export function AlarmsProvider({ children }: { children: React.ReactNode }) {
       alarms.flatMap((a) => a.notificationIds?.length ? [cancelAlarmNotifications(a.notificationIds)] : [])
     );
     setAlarms([]);
-    persistAlarms([]);
+    persist([]);
   };
 
   const editAlarm = async (id: string, data: AlarmData) => {
@@ -101,7 +142,7 @@ export function AlarmsProvider({ children }: { children: React.ReactNode }) {
       a.id === id ? { ...data, id, active: true, notificationIds } : a
     );
     setAlarms(updated);
-    persistAlarms(updated);
+    persist(updated);
   };
 
   const toggleAlarm = async (id: string) => {
@@ -123,7 +164,7 @@ export function AlarmsProvider({ children }: { children: React.ReactNode }) {
       a.id === id ? { ...a, active: nowActive, notificationIds } : a
     );
     setAlarms(updated);
-    persistAlarms(updated);
+    persist(updated);
   };
 
   const deactivateByChannelId = async (channelId: string) => {
@@ -137,11 +178,43 @@ export function AlarmsProvider({ children }: { children: React.ReactNode }) {
         : a
     );
     setAlarms(updated);
-    persistAlarms(updated);
+    persist(updated);
+  };
+
+  const uploadOfflineAlarms = async () => {
+    const merged = [...alarms, ...offlinePending];
+    setAlarms(merged);
+    await persistToSupabase(merged);
+    await AsyncStorage.removeItem(OFFLINE_KEY);
+    setOfflinePending([]);
+    setMergePromptVisible(false);
+  };
+
+  const discardOfflineAlarms = async () => {
+    await Promise.all(
+      offlinePending.flatMap((a) => a.notificationIds?.length ? [cancelAlarmNotifications(a.notificationIds)] : [])
+    );
+    await AsyncStorage.removeItem(OFFLINE_KEY);
+    setOfflinePending([]);
+    setMergePromptVisible(false);
   };
 
   return (
-    <AlarmsContext.Provider value={{ alarms, addAlarm, removeAlarm, removeAlarmDirect, clearAllAlarms, editAlarm, toggleAlarm, deactivateByChannelId, refetch: fetchAlarms }}>
+    <AlarmsContext.Provider value={{
+      alarms,
+      addAlarm,
+      removeAlarm,
+      removeAlarmDirect,
+      clearAllAlarms,
+      editAlarm,
+      toggleAlarm,
+      deactivateByChannelId,
+      refetch: fetchAlarms,
+      mergePromptVisible,
+      offlinePendingCount: offlinePending.length,
+      uploadOfflineAlarms,
+      discardOfflineAlarms,
+    }}>
       {children}
     </AlarmsContext.Provider>
   );

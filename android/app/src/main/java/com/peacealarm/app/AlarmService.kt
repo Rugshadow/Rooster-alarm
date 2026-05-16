@@ -18,6 +18,10 @@ import java.net.URL
 
 class AlarmService : Service() {
 
+    companion object {
+        const val ACTION_HIDE_NOTIFICATION = "com.peacealarm.app.HIDE_NOTIFICATION"
+    }
+
     @Volatile private var isDestroyed = false
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
@@ -25,6 +29,17 @@ class AlarmService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_HIDE_NOTIFICATION) {
+            Log.d("PeaceAlarm", "AlarmService: hiding notification (popup is showing)")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+            return START_NOT_STICKY
+        }
+
         Log.d("PeaceAlarm", "AlarmService.onStartCommand fired!")
 
         val channelId = intent?.getStringExtra("channelId") ?: ""
@@ -92,10 +107,11 @@ class AlarmService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val timeStr = java.text.SimpleDateFormat("h:mm a", java.util.Locale.US).format(java.util.Date())
         val notification = NotificationCompat.Builder(this, notifChannelId)
             .setSmallIcon(R.drawable.notification_icon)
-            .setContentTitle("⏰ $channelName")
-            .setContentText("Time to wake up!")
+            .setContentTitle(channelName)
+            .setContentText("$timeStr alarm")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(fullScreenPi, true)

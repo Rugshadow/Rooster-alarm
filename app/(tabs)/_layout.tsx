@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Animated, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAlarmsContext } from '../../contexts/AlarmsContext';
 import AccountSheet from '../../components/AccountSheet';
 import WelcomeModal from '../../components/WelcomeModal';
 
@@ -69,7 +70,8 @@ function Header({ routeName }: { routeName: string }) {
           ) : (
             <TouchableOpacity
               onPress={() => router.push('/auth/login')}
-              className="rounded-full px-4 py-1.5 bg-white"
+              className="rounded-full px-4 py-1.5"
+              style={{ backgroundColor: Colors.primary }}
             >
               <Text className="font-semibold text-[14px] text-text-primary">{t('common.log_in')}</Text>
             </TouchableOpacity>
@@ -82,8 +84,9 @@ function Header({ routeName }: { routeName: string }) {
 }
 
 export default function TabLayout() {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, creatorMode } = useAuth();
   const { t } = useTranslation();
+  const { mergePromptVisible, offlinePendingCount, uploadOfflineAlarms, discardOfflineAlarms } = useAlarmsContext();
   const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
@@ -101,6 +104,31 @@ export default function TabLayout() {
   return (
     <>
     <WelcomeModal visible={showWelcome} onDismiss={handleWelcomeDismiss} />
+
+    <Modal visible={mergePromptVisible} transparent animationType="fade">
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 24, width: '100%' }}>
+          <Text style={{ fontSize: 17, fontWeight: '700', color: '#1A1A1A', marginBottom: 8 }}>
+            Offline Alarms Found
+          </Text>
+          <Text style={{ fontSize: 15, color: '#666', marginBottom: 24, lineHeight: 22 }}>
+            You have {offlinePendingCount} alarm{offlinePendingCount !== 1 ? 's' : ''} saved offline. Would you like to upload {offlinePendingCount !== 1 ? 'them' : 'it'} to your account or delete {offlinePendingCount !== 1 ? 'them' : 'it'}?
+          </Text>
+          <TouchableOpacity
+            onPress={uploadOfflineAlarms}
+            style={{ backgroundColor: Colors.primary, borderRadius: 100, paddingVertical: 14, alignItems: 'center', marginBottom: 10 }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: '700', color: Colors.textPrimary }}>Upload</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={discardOfflineAlarms}
+            style={{ backgroundColor: '#F5F5F0', borderRadius: 100, paddingVertical: 14, alignItems: 'center' }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: '600', color: '#666' }}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
     <Tabs
       screenOptions={({ route }) => ({
         header: () => {
@@ -146,6 +174,7 @@ export default function TabLayout() {
         options={{
           title: t('tabs.create'),
           tabBarIcon: ({ color }) => <Ionicons name="mic" size={22} color={color} />,
+          href: creatorMode ? undefined : null,
         }}
       />
     </Tabs>
