@@ -192,7 +192,7 @@ export default function FavoritesScreen() {
             onPress={() => setActiveTab(tab)}
             className="flex-1 py-2.5 rounded-xl items-center"
             style={{
-              backgroundColor: activeTab === tab ? Colors.background : 'transparent',
+              backgroundColor: activeTab === tab ? Colors.primary : 'transparent',
               elevation: activeTab === tab ? 2 : 0,
             }}
           >

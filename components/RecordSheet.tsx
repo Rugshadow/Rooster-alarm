@@ -288,7 +288,7 @@ export default function RecordSheet({ visible, onClose, onSave, scheduledDates, 
             </Text>
             <Text style={{ fontSize: 24, fontWeight: '600', color: textSecondary, marginBottom: 4 }}> / </Text>
             <Text style={{ fontSize: 40, fontWeight: 'bold', color: textSecondary }}>
-              {formatTime(state === 'recording' ? elapsed : Math.round(effectiveDuration))}
+              {formatTime(state === 'idle' && !recordingUri ? 0 : state === 'recording' ? elapsed : Math.round(effectiveDuration))}
             </Text>
             <Text style={{ fontSize: 24, fontWeight: '600', color: textSecondary, marginBottom: 4 }}> / </Text>
             <Text style={{ fontSize: 40, fontWeight: 'bold', color: textSecondary }}>
