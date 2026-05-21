@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Rooster Alarm</title>
+  <link rel="icon" type="image/png" href="../assets/Rooster Alarm Corner.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #F4FF1C;
+      --primary-dark: #B8D400;
+      --bg: #111111;
+      --surface: #1E1E1E;
+      --surface2: #2C2C2E;
+      --text: #FFFFFF;
+      --text-muted: #888888;
+      --radius: 16px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 48px;
+      background: rgba(17, 17, 17, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .nav-logo-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .nav-logo-icon img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .nav-logo-text {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 15px;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    .nav-cta {
+      background: var(--primary);
+      color: #FF002B !important;
+      font-weight: 600 !important;
+      padding: 10px 22px;
+      border-radius: 100px;
+      transition: background 0.2s !important;
+    }
+
+    .nav-cta:hover { background: var(--primary-dark) !important; color: #FF002B !important; }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 40px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .footer-logo-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .footer-logo-icon img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .footer-logo-text {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .footer-copy {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 14px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--text); }
+
+    /* PAGE CONTENT */
+    .page-wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 140px 24px 100px;
+    }
+
+    .page-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin-bottom: 16px;
+    }
+
+    .page-title {
+      font-size: clamp(36px, 5vw, 56px);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+
+    .page-date {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 56px;
+      padding-bottom: 40px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .doc h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-top: 48px;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+
+    .doc h2:first-child { margin-top: 0; }
+
+    .doc p {
+      font-size: 16px;
+      color: var(--text-muted);
+      line-height: 1.75;
+      margin-bottom: 14px;
+    }
+
+    .doc ul {
+      margin: 0 0 14px 0;
+      padding-left: 24px;
+    }
+
+    .doc ul li {
+      font-size: 16px;
+      color: var(--text-muted);
+      line-height: 1.75;
+      margin-bottom: 6px;
+    }
+
+    .doc a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    .doc a:hover { text-decoration: underline; }
+
+    @media (max-width: 768px) {
+      nav { padding: 16px 20px; }
+      .nav-links { display: none; }
+      footer { flex-direction: column; align-items: flex-start; padding: 32px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a href="index.html" class="nav-logo">
+      <div class="nav-logo-icon"><img src="../assets/icon.png" alt="Rooster Alarm" /></div>
+      <span class="nav-logo-text">Rooster Alarm</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html#features">Features</a></li>
+      <li><a href="index.html#how">How It Works</a></li>
+      <li><a href="creators.html">For Creators</a></li>
+      <li><a href="index.html#download" class="nav-cta">Get the App</a></li>
+    </ul>
+  </nav>
+
+  <div class="page-wrap">
+    <div class="page-label">Legal</div>
+    <h1 class="page-title">Privacy Policy</h1>
+    <p class="page-date">Last updated May 10, 2026</p>
+
+    <div class="doc">
+
+      <p>This Privacy Notice for Rooster Alarm ("we," "us," or "our") describes how and why we might access, collect, store, use, and/or share your personal information when you use our services, including when you download and use our mobile application Rooster Alarm, or engage with us in other related ways.</p>
+      <p>Questions or concerns? Contact us at <a href="mailto:mattshade@roosteralarm.com">mattshade@roosteralarm.com</a>.</p>
+
+      <h2>SUMMARY OF KEY POINTS</h2>
+      <ul>
+        <li>We collect personal information you provide (email, username, password) and information automatically collected (device data, usage data).</li>
+        <li>We do not process sensitive personal information.</li>
+        <li>We do not collect information from third parties.</li>
+        <li>We process your information to provide and improve our services, communicate with you, and comply with law.</li>
+        <li>We do not sell or share your personal information.</li>
+        <li>We keep your information for as long as your account is active.</li>
+        <li>Depending on your location, you may have rights over your personal information.</li>
+      </ul>
+
+      <h2>1. WHAT INFORMATION DO WE COLLECT?</h2>
+      <p>Personal information you provide:</p>
+      <ul>
+        <li>Email addresses</li>
+        <li>Usernames</li>
+        <li>Passwords</li>
+      </ul>
+      <p>We do not process sensitive information.</p>
+      <p>Application data we may collect:</p>
+      <ul>
+        <li>Mobile device access (storage, alarm clock)</li>
+        <li>Mobile device data (device ID, model, OS, IP address)</li>
+        <li>Push notifications (if you grant permission)</li>
+      </ul>
+      <p>Information automatically collected:</p>
+      <ul>
+        <li>Log and usage data (IP address, device info, browser type, pages viewed, date/time stamps)</li>
+      </ul>
+
+      <h2>2. HOW DO WE PROCESS YOUR INFORMATION?</h2>
+      <p>We process your information to:</p>
+      <ul>
+        <li>Facilitate account creation and authentication</li>
+        <li>Deliver and facilitate our services</li>
+        <li>Save or protect an individual's vital interest</li>
+      </ul>
+
+      <h2>3. WHAT LEGAL BASES DO WE RELY ON?</h2>
+      <p>We process your information only when we have a valid legal reason, including:</p>
+      <ul>
+        <li>Consent</li>
+        <li>Performance of a contract</li>
+        <li>Legal obligations</li>
+        <li>Vital interests</li>
+      </ul>
+      <p>If you are in Canada, we may process your information with your express or implied consent, or under specific legal exceptions.</p>
+
+      <h2>4. WHEN AND WITH WHOM DO WE SHARE YOUR INFORMATION?</h2>
+      <p>We may share your information in the following situations:</p>
+      <ul>
+        <li><strong>Business transfers:</strong> In connection with any merger, sale, or acquisition of our business.</li>
+        <li><strong>Offer wall:</strong> Third-party advertisers may offer virtual rewards through an offer wall in the app. A unique identifier may be shared with the offer wall provider to prevent fraud.</li>
+      </ul>
+
+      <h2>5. THIRD-PARTY WEBSITES</h2>
+      <p>Our services may link to third-party websites or contain third-party advertisements. We are not responsible for the safety or privacy practices of those third parties. Review their policies before providing any personal information.</p>
+
+      <h2>6. HOW DO WE HANDLE YOUR SOCIAL LOGINS?</h2>
+      <p>If you register or log in using a social media account (e.g. Google), we will receive certain profile information from your social media provider (such as name, email, and profile picture). We use this information only as described in this Privacy Notice.</p>
+
+      <h2>7. HOW LONG DO WE KEEP YOUR INFORMATION?</h2>
+      <p>We keep your personal information for as long as you have an account with us. When we no longer need it, we will delete or anonymize your information.</p>
+
+      <h2>8. HOW DO WE KEEP YOUR INFORMATION SAFE?</h2>
+      <p>We implement appropriate technical and organizational security measures. However, no electronic transmission or storage technology is 100% secure. You should only access our services within a secure environment.</p>
+
+      <h2>9. DO WE COLLECT INFORMATION FROM MINORS?</h2>
+      <p>We do not knowingly collect data from or market to children under 18. By using the services, you represent that you are at least 18 years old. If we learn that we have collected data from a minor, we will deactivate the account and delete the data. Contact us at <a href="mailto:mattshade@roosteralarm.com">mattshade@roosteralarm.com</a> if you believe we have collected data from a minor.</p>
+
+      <h2>10. WHAT ARE YOUR PRIVACY RIGHTS?</h2>
+      <p>Depending on your location, you may have rights to:</p>
+      <ul>
+        <li>Access and obtain a copy of your personal information</li>
+        <li>Correct inaccuracies</li>
+        <li>Request deletion</li>
+        <li>Restrict or object to processing</li>
+        <li>Data portability</li>
+      </ul>
+      <p>To exercise these rights, submit a data subject access request or email us at <a href="mailto:mattshade@roosteralarm.com">mattshade@roosteralarm.com</a>.</p>
+      <p>You may withdraw your consent at any time by contacting us. To terminate your account, log in to your account settings.</p>
+
+      <h2>11. CONTROLS FOR DO-NOT-TRACK FEATURES</h2>
+      <p>We do not currently respond to Do-Not-Track browser signals, as no uniform standard exists. California law requires us to disclose this.</p>
+
+      <h2>12. DO UNITED STATES RESIDENTS HAVE SPECIFIC PRIVACY RIGHTS?</h2>
+      <p>Residents of California, Colorado, Connecticut, and other US states may have the right to:</p>
+      <ul>
+        <li>Know whether we process your personal data</li>
+        <li>Access, correct, or delete your personal data</li>
+        <li>Opt out of sale or sharing of personal data</li>
+        <li>Non-discrimination for exercising your rights</li>
+      </ul>
+      <p>We have not sold or shared any personal information in the past 12 months and will not do so in the future.</p>
+      <p>To exercise your rights, email <a href="mailto:mattshade@roosteralarm.com">mattshade@roosteralarm.com</a> or visit roosteralarm.com.</p>
+
+      <h2>13. DO OTHER REGIONS HAVE SPECIFIC PRIVACY RIGHTS?</h2>
+      <p><strong>Australia &amp; New Zealand:</strong> We comply with Australia's Privacy Act 1988 and New Zealand's Privacy Act 2020.</p>
+      <p><strong>Republic of South Africa:</strong> You may request access to or correction of your personal information at any time.</p>
+      <p><strong>EU/UK/Switzerland:</strong> You have rights under GDPR and UK GDPR, including the right to lodge a complaint with your local data protection authority.</p>
+
+      <h2>14. DO WE MAKE UPDATES TO THIS NOTICE?</h2>
+      <p>We may update this Privacy Notice from time to time. The updated version will be indicated by an updated "Revised" date at the top. We encourage you to review this notice frequently.</p>
+
+      <h2>15. HOW CAN YOU CONTACT US?</h2>
+      <p>Email: <a href="mailto:mattshade@roosteralarm.com">mattshade@roosteralarm.com</a></p>
+      <p>Mail:<br />Rooster Alarm<br />923 N Washington St<br />Lowell, MI 49331<br />United States</p>
+
+      <h2>16. HOW CAN YOU REVIEW, UPDATE, OR DELETE YOUR DATA?</h2>
+      <p>You may submit a data subject access request or contact us at <a href="mailto:mattshade@roosteralarm.com">mattshade@roosteralarm.com</a> to review, update, or delete your personal information.</p>
+
+      <p style="margin-top:40px; font-size:13px; text-align:center;">This Privacy Policy was created using Termly's Privacy Policy Generator.</p>
+
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <a href="index.html" class="footer-logo">
+      <div class="footer-logo-icon"><img src="../assets/icon.png" alt="Rooster Alarm" /></div>
+      <span class="footer-logo-text">Rooster Alarm</span>
+    </a>
+    <span class="footer-copy">© 2026 Rooster Alarm. All rights reserved.</span>
+    <ul class="footer-links">
+      <li><a href="privacy.html">Privacy</a></li>
+      <li><a href="terms.html">Terms</a></li>
+      <li><a href="contact.html">Contact</a></li>
+    </ul>
+  </footer>
+
+</body>
+</html>

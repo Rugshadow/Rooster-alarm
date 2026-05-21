@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact — Rooster Alarm</title>
+  <link rel="icon" type="image/png" href="../assets/Rooster Alarm Corner.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #F4FF1C;
+      --primary-dark: #B8D400;
+      --bg: #111111;
+      --surface: #1E1E1E;
+      --surface2: #2C2C2E;
+      --text: #FFFFFF;
+      --text-muted: #888888;
+      --radius: 16px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 48px;
+      background: rgba(17, 17, 17, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .nav-logo-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .nav-logo-icon img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .nav-logo-text {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 15px;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    .nav-cta {
+      background: var(--primary);
+      color: #FF002B !important;
+      font-weight: 600 !important;
+      padding: 10px 22px;
+      border-radius: 100px;
+      transition: background 0.2s !important;
+    }
+
+    .nav-cta:hover { background: var(--primary-dark) !important; color: #FF002B !important; }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 40px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .footer-logo-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .footer-logo-icon img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .footer-logo-text {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .footer-copy {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 14px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--text); }
+
+    /* PAGE CONTENT */
+    .page-wrap {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 140px 24px 100px;
+    }
+
+    .page-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin-bottom: 16px;
+    }
+
+    .page-title {
+      font-size: clamp(36px, 5vw, 56px);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+
+    .page-sub {
+      font-size: 17px;
+      color: var(--text-muted);
+      margin-bottom: 48px;
+      line-height: 1.7;
+    }
+
+    /* FORM */
+    .form { display: flex; flex-direction: column; gap: 20px; }
+
+    .field { display: flex; flex-direction: column; gap: 8px; }
+
+    .field label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .field input,
+    .field textarea,
+    .field select {
+      background: var(--surface);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 15px;
+      color: var(--text);
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+
+    .field input::placeholder,
+    .field textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus {
+      border-color: rgba(244,255,28,0.5);
+    }
+
+    .field select option {
+      background: var(--surface2);
+    }
+
+    .field textarea {
+      resize: vertical;
+      min-height: 140px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .btn-submit {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: var(--primary);
+      color: #111;
+      font-weight: 700;
+      font-size: 16px;
+      padding: 16px 32px;
+      border-radius: 100px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .btn-submit:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    /* SUCCESS STATE */
+    .success-msg {
+      display: none;
+      background: rgba(244,255,28,0.08);
+      border: 1px solid rgba(244,255,28,0.25);
+      border-radius: 12px;
+      padding: 20px 24px;
+      color: var(--primary);
+      font-size: 15px;
+      font-weight: 500;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 768px) {
+      nav { padding: 16px 20px; }
+      .nav-links { display: none; }
+      footer { flex-direction: column; align-items: flex-start; padding: 32px 20px; }
+      .form-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a href="index.html" class="nav-logo">
+      <div class="nav-logo-icon"><img src="../assets/icon.png" alt="Rooster Alarm" /></div>
+      <span class="nav-logo-text">Rooster Alarm</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html#features">Features</a></li>
+      <li><a href="index.html#how">How It Works</a></li>
+      <li><a href="creators.html">For Creators</a></li>
+      <li><a href="index.html#download" class="nav-cta">Get the App</a></li>
+    </ul>
+  </nav>
+
+  <div class="page-wrap">
+    <div class="page-label">Get in Touch</div>
+    <h1 class="page-title">Contact Us</h1>
+    <p class="page-sub">Have a question, bug report, or just want to say hi? Fill out the form and we'll get back to you.</p>
+
+    <form class="form" id="contactForm">
+      <div class="form-row">
+        <div class="field">
+          <label for="firstName">First name</label>
+          <input type="text" id="firstName" name="firstName" placeholder="Jane" required />
+        </div>
+        <div class="field">
+          <label for="lastName">Last name</label>
+          <input type="text" id="lastName" name="lastName" placeholder="Smith" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" placeholder="jane@example.com" required />
+      </div>
+
+      <div class="field">
+        <label for="subject">Subject</label>
+        <select id="subject" name="subject" required>
+          <option value="" disabled selected>Select a topic</option>
+          <option value="general">General question</option>
+          <option value="bug">Bug report</option>
+          <option value="creator">Creator inquiry</option>
+          <option value="account">Account issue</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="message">Message</label>
+        <textarea id="message" name="message" placeholder="Tell us what's on your mind..." required></textarea>
+      </div>
+
+      <button type="submit" class="btn-submit">Send Message</button>
+      <div class="success-msg" id="successMsg">
+        Thanks for reaching out — we'll be in touch soon.
+      </div>
+    </form>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <a href="index.html" class="footer-logo">
+      <div class="footer-logo-icon"><img src="../assets/icon.png" alt="Rooster Alarm" /></div>
+      <span class="footer-logo-text">Rooster Alarm</span>
+    </a>
+    <span class="footer-copy">© 2026 Rooster Alarm. All rights reserved.</span>
+    <ul class="footer-links">
+      <li><a href="privacy.html">Privacy</a></li>
+      <li><a href="terms.html">Terms</a></li>
+      <li><a href="contact.html">Contact</a></li>
+    </ul>
+  </footer>
+
+  <script>
+    // TODO: wire up to email service (Formspree, EmailJS, etc.) when ready
+    document.getElementById('contactForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      document.getElementById('successMsg').style.display = 'block';
+      this.reset();
+    });
+  </script>
+
+</body>
+</html>
