@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
+import androidx.core.view.WindowCompat
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.modules.core.DeviceEventManagerModule
@@ -16,6 +17,9 @@ import expo.modules.ReactActivityDelegateWrapper
 class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     setTheme(R.style.AppTheme)
+    // Enable edge-to-edge so WindowInsets (status bar + display cutout) are dispatched
+    // to React views; without this, react-native-safe-area-context reports 0 insets.
+    WindowCompat.setDecorFitsSystemWindows(window, false)
     val hasExtra = intent?.hasExtra("alarmChannelId") == true
     val prefChannelId = getSharedPreferences("peace_alarm_prefs", MODE_PRIVATE).getString("alarm_channel_id", null)
     android.util.Log.d("RoosterAlarm", "MainActivity.onCreate hasExtra=$hasExtra prefChannelId=$prefChannelId")

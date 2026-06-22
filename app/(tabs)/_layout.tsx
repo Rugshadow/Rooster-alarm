@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View,TouchableOpacity, Image, Animated, Modal } from 'react-native';
+import { View, TouchableOpacity, Image, Animated, Modal, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { Text } from '../../components/Text';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,6 +17,16 @@ function Header({ routeName }: { routeName: string }) {
   const { t } = useTranslation();
   const [showAccount, setShowAccount] = useState(false);
   const ringAnim = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
+  // Pick the largest of the available top-inset sources. The hardcoded 56 floor on
+  // Android is a safety net for devices/emulators where neither the safe-area-context
+  // nor StatusBar.currentHeight report a usable value but the app still renders into
+  // the cutout area (notch / camera island).
+  const topPad = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0,
+    Platform.OS === 'android' ? 56 : 0,
+  );
 
   const ringLogo = () => {
     ringAnim.setValue(0);
@@ -45,7 +55,7 @@ function Header({ routeName }: { routeName: string }) {
 
   return (
     <>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+      <View style={{ backgroundColor: Colors.primary, paddingTop: topPad }}>
         <View className="flex-row items-center px-4 pb-2" style={{ height: 44 }}>
           <TouchableOpacity onPress={ringLogo} activeOpacity={1} style={{ width: 40 }}>
             <Animated.Image
@@ -72,7 +82,7 @@ function Header({ routeName }: { routeName: string }) {
             </View>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
       <AccountSheet visible={showAccount} onClose={() => setShowAccount(false)} />
     </>
   );
