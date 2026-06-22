@@ -4,6 +4,7 @@ import { Text } from './Text';
 import AppAlert from './AppAlert';
 import { useAppAlert } from '../hooks/useAppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTopInset } from '../hooks/useTopInset';
 import { Ionicons } from '@expo/vector-icons';
 import {
   useAudioRecorder,
@@ -76,6 +77,7 @@ export default function RecordSheet({ visible, onClose, onSave, scheduledDates, 
   const { bg, surface, text, textSecondary } = useTheme();
   const { showAlert, alertProps } = useAppAlert();
   const { t } = useTranslation();
+  const topPad = useTopInset();
   const [state, setState] = useState<RecordState>('idle');
   const [elapsed, setElapsed] = useState(0);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
@@ -272,7 +274,7 @@ export default function RecordSheet({ visible, onClose, onSave, scheduledDates, 
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <AppAlert {...alertProps} />
       <SafeAreaView style={{ flex: 1, backgroundColor: bg }} edges={['left', 'right']}>
-        <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+        <SafeAreaView edges={[]} style={{ backgroundColor: Colors.primary, paddingTop: topPad }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">{t('record.title')}</Text>
           </View>

@@ -31,6 +31,7 @@ const FALLBACK_SOUNDS = [
 import Slider from '@react-native-community/slider';
 import { useAudioPlayer } from 'expo-audio';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTopInset } from '../hooks/useTopInset';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useRouter } from 'expo-router';
@@ -50,6 +51,7 @@ export default function AccountSheet({ visible, onClose }: Props) {
   const { signOut, username, session, isLoggedIn, timeFormat, setTimeFormat, colorScheme, setColorScheme, alarmVolume, setAlarmVolume, creatorMode, setCreatorMode, language, setLanguage } = useAuth();
   const { bg, surface, text, textSecondary } = useTheme();
   const { t } = useTranslation();
+  const topPad = useTopInset();
   const { alarms, clearAllAlarms } = useAlarmsContext();
   const previewPlayer = useAudioPlayer(require('../assets/bell_chime.mp3'));
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -203,7 +205,7 @@ export default function AccountSheet({ visible, onClose }: Props) {
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <AppAlert {...alertProps} />
       <SafeAreaView className="flex-1" style={{ backgroundColor: bg }} edges={['left', 'right']}>
-        <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+        <SafeAreaView edges={[]} style={{ backgroundColor: Colors.primary, paddingTop: topPad }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
               {username ? `${username}'s Settings` : t('account.title')}
@@ -478,7 +480,7 @@ export default function AccountSheet({ visible, onClose }: Props) {
 
     <Modal visible={languagePickerVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setLanguagePickerVisible(false)}>
       <SafeAreaView style={{ flex: 1, backgroundColor: bg }} edges={['left', 'right']}>
-        <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+        <SafeAreaView edges={[]} style={{ backgroundColor: Colors.primary, paddingTop: topPad }}>
           <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 12 }}>
             <Text style={{ fontSize: 17, fontWeight: '600', color: Colors.textPrimary, textAlign: 'center' }}>
               {t('account.language_label')}

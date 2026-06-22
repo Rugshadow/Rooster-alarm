@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Text } from '../../components/Text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTopInset } from '../../hooks/useTopInset';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import ChannelAvatar from '../../components/ChannelAvatar';
@@ -39,10 +40,11 @@ function GenreGridSheet({
   const { bg, text, textSecondary } = useTheme();
   const { t } = useTranslation();
   const { bottom } = useSafeAreaInsets();
+  const topPad = useTopInset();
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView className="flex-1" style={{ backgroundColor: bg }} edges={['left', 'right']}>
-        <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+        <SafeAreaView edges={[]} style={{ backgroundColor: Colors.primary, paddingTop: topPad }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">{title}</Text>
           </View>

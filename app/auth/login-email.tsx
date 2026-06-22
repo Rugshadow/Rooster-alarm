@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Text } from '../../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTopInset } from '../../hooks/useTopInset';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -17,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 export default function LoginEmailScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const topPad = useTopInset();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,7 +35,7 @@ export default function LoginEmailScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-white" style={{ paddingTop: topPad }} edges={['left', 'right']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
         <View className="flex-1 px-6 justify-center">
           <Text className="text-text-secondary text-[15px] mb-8">{t('auth.login_email_title')}</Text>

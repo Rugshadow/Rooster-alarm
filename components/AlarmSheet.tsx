@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Text } from './Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTopInset } from '../hooks/useTopInset';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import ChannelAvatar from './ChannelAvatar';
@@ -210,6 +211,7 @@ function ChannelPickerModal({
   const { session, isLoggedIn } = useAuth();
   const { bg, surface, text, textSecondary } = useTheme();
   const { t } = useTranslation();
+  const topPad = useTopInset();
   const [tab, setTab] = useState<'favorites' | 'all'>('favorites');
   const [search, setSearch] = useState('');
   const [favChannels, setFavChannels] = useState<Channel[]>([]);
@@ -327,7 +329,7 @@ function ChannelPickerModal({
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView className="flex-1" style={{ backgroundColor: bg }} edges={['left', 'right']}>
-        <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+        <SafeAreaView edges={[]} style={{ backgroundColor: Colors.primary, paddingTop: topPad }}>
           <View className="px-4 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
               {t('alarm_sheet.choose_channel')}
@@ -461,6 +463,7 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
   const { timeFormat } = useAuth();
   const { bg, surface, text, textSecondary } = useTheme();
   const { t } = useTranslation();
+  const topPad = useTopInset();
   const HOURS = timeFormat === 'military' ? HOURS_24 : HOURS_12;
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
 
@@ -559,7 +562,7 @@ export default function AlarmSheet({ visible, onClose, onSave, preselectedChanne
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView className="flex-1" style={{ backgroundColor: bg }} edges={['left', 'right', 'bottom']}>
-        <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+        <SafeAreaView edges={[]} style={{ backgroundColor: Colors.primary, paddingTop: topPad }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
               {initialAlarm ? t('alarm_sheet.edit_alarm') : t('alarm_sheet.new_alarm')}

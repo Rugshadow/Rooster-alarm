@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Text } from './Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTopInset } from '../hooks/useTopInset';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../constants/colors';
@@ -32,6 +33,7 @@ type Props = {
 export default function CreateChannelSheet({ visible, onClose, onSave }: Props) {
   const { t } = useTranslation();
   const { language: deviceLanguage } = useAuth();
+  const topPad = useTopInset();
   const [name, setName] = useState('');
   const [genre, setGenre] = useState('');
   const [description, setDescription] = useState('');
@@ -82,7 +84,7 @@ export default function CreateChannelSheet({ visible, onClose, onSave }: Props) 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView className="flex-1 bg-white" edges={['left', 'right']}>
-        <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+        <SafeAreaView edges={[]} style={{ backgroundColor: Colors.primary, paddingTop: topPad }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
               {t('create_channel.title')}
@@ -217,7 +219,7 @@ export default function CreateChannelSheet({ visible, onClose, onSave }: Props) 
 
       <Modal visible={languagePickerVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setLanguagePickerVisible(false)}>
         <SafeAreaView className="flex-1 bg-white" edges={['left', 'right']}>
-          <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+          <SafeAreaView edges={[]} style={{ backgroundColor: Colors.primary, paddingTop: topPad }}>
             <View className="px-6 pt-2 pb-3">
               <Text className="text-[17px] font-semibold text-text-primary text-center">
                 {t('create_channel.language_label')}

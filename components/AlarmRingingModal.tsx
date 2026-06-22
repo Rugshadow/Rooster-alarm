@@ -7,6 +7,7 @@ import { Text } from './Text';
 import * as NavigationBar from 'expo-navigation-bar';
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTopInset } from '../hooks/useTopInset';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -39,6 +40,7 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
   const { width } = useWindowDimensions();
   const { session } = useAuth();
   const { t } = useTranslation();
+  const topPad = useTopInset();
   const [usingFallback, setUsingFallback] = useState(false);
   const [meta, setMeta] = useState<AudioMeta | null>(null);
   const startedRef = useRef(false);
@@ -200,7 +202,7 @@ export default function AlarmRingingModal({ visible, channelId, channelName, cha
 
   return (
     <Modal visible={visible} animationType="none" presentationStyle="fullScreen">
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0a' }} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0a', paddingTop: topPad }} edges={['left', 'right']}>
 
         {/* Square visualizer */}
         <View style={{ width: vizSize, height: vizSize, flexShrink: 1 }}>

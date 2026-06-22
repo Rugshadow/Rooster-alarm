@@ -15,6 +15,7 @@ import AlarmRingingModal from './AlarmRingingModal';
 import AppAlert from './AppAlert';
 import { useAppAlert } from '../hooks/useAppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTopInset } from '../hooks/useTopInset';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import AudioListRow from './AudioListRow';
@@ -61,6 +62,7 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
   const { bg, text, textSecondary, surface } = useTheme();
   const { showAlert, alertProps } = useAppAlert();
   const { t } = useTranslation();
+  const topPad = useTopInset();
   const { playingId, play, stop } = useAudioPlayer();
   const [previewClip, setPreviewClip] = useState<{ audioUrl: string; duration: number; title: string; audioId: string } | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
@@ -279,7 +281,7 @@ export default function ChannelSheet({ channel, visible, onClose, onSetAlarm }: 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <AppAlert {...alertProps} />
-      <SafeAreaView className="flex-1" style={{ backgroundColor: bg }} edges={['top', 'left', 'right']}>
+      <SafeAreaView className="flex-1" style={{ backgroundColor: bg, paddingTop: topPad }} edges={['left', 'right']}>
         <ScrollView>
           <View style={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 8 }}>
             {channel.imageUrl ? (

@@ -12,6 +12,7 @@ import { Text } from '../../components/Text';
 import PrivacyPolicySheet from '../../components/PrivacyPolicySheet';
 import TermsSheet from '../../components/TermsSheet';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTopInset } from '../../hooks/useTopInset';
 import { useRouter } from 'expo-router';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -21,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 export default function SignupScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const topPad = useTopInset();
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -55,7 +57,7 @@ export default function SignupScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-white" style={{ paddingTop: topPad }} edges={['left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"

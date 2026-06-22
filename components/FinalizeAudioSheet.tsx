@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Text } from './Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTopInset } from '../hooks/useTopInset';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../constants/colors';
@@ -327,6 +328,7 @@ type Props = {
 export default function FinalizeAudioSheet({ visible, onBack, onComplete, scheduledDates, initialTitle, initialThumbnailUri, initialReleaseDate, releaseDateLocked }: Props) {
   const { bg } = useTheme();
   const { t } = useTranslation();
+  const topPad = useTopInset();
   const [title, setTitle] = useState('');
   const [thumbnailUri, setThumbnailUri] = useState<string | undefined>(initialThumbnailUri);
   const [thumbnailBase64, setThumbnailBase64] = useState<string | undefined>();
@@ -391,7 +393,7 @@ export default function FinalizeAudioSheet({ visible, onBack, onComplete, schedu
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={{ flex: 1, backgroundColor: bg }} edges={['left', 'right']}>
-        <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+        <SafeAreaView edges={[]} style={{ backgroundColor: Colors.primary, paddingTop: topPad }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
               {t('finalize_audio.title')}

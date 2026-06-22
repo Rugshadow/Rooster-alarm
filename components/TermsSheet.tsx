@@ -2,6 +2,7 @@ import React from 'react';
 import { View,Modal, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from './Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTopInset } from '../hooks/useTopInset';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useTheme } from '../hooks/useTheme';
@@ -31,11 +32,12 @@ function Body({ children }: { children: string }) {
 
 export default function TermsSheet({ visible, onClose }: Props) {
   const { bg, text, textSecondary } = useTheme();
+  const topPad = useTopInset();
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView className="flex-1" style={{ backgroundColor: bg }} edges={['left', 'right']}>
-        <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+        <SafeAreaView edges={[]} style={{ backgroundColor: Colors.primary, paddingTop: topPad }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">Terms & Conditions</Text>
           </View>

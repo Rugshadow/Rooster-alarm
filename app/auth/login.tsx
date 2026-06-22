@@ -2,6 +2,7 @@ import React from 'react';
 import { View,Image, TouchableOpacity } from 'react-native';
 import { Text } from '../../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTopInset } from '../../hooks/useTopInset';
 import { useRouter } from 'expo-router';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -16,6 +17,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const { setUsername } = useAuth();
   const { t } = useTranslation();
+  const topPad = useTopInset();
 
   const handleGoogleLogin = async () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
@@ -43,7 +45,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white" style={{ backgroundColor: 'white' }} edges={['top', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-white" style={{ backgroundColor: 'white', paddingTop: topPad }} edges={['left', 'right']}>
       <View className="flex-1 px-6 items-center justify-center">
         <Image
           source={require('../../assets/icon.png')}

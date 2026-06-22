@@ -13,6 +13,7 @@ import { Text } from './Text';
 import AppAlert from './AppAlert';
 import { useAppAlert } from '../hooks/useAppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTopInset } from '../hooks/useTopInset';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
@@ -53,6 +54,7 @@ export default function ChannelSettingsSheet({
   const { bg, surface, text, textSecondary } = useTheme();
   const { showAlert, alertProps } = useAppAlert();
   const { t } = useTranslation();
+  const topPad = useTopInset();
   const [uploading, setUploading] = useState(false);
   const [order, setOrder] = useState<ListeningOrder>(listeningOrder);
   const [bio, setBio] = useState(currentBio);
@@ -170,7 +172,7 @@ export default function ChannelSettingsSheet({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <AppAlert {...alertProps} />
       <SafeAreaView style={{ flex: 1, backgroundColor: bg }} edges={['left', 'right']}>
-        <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+        <SafeAreaView edges={[]} style={{ backgroundColor: Colors.primary, paddingTop: topPad }}>
           <View className="px-6 pt-2 pb-3">
             <Text className="text-[17px] font-semibold text-text-primary text-center">
               {t('channel_settings.title')}
@@ -317,7 +319,7 @@ export default function ChannelSettingsSheet({
 
       <Modal visible={languagePickerVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setLanguagePickerVisible(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: bg }} edges={['left', 'right']}>
-          <SafeAreaView edges={['top']} style={{ backgroundColor: Colors.primary }}>
+          <SafeAreaView edges={[]} style={{ backgroundColor: Colors.primary, paddingTop: topPad }}>
             <View className="px-6 pt-2 pb-3">
               <Text className="text-[17px] font-semibold text-text-primary text-center">
                 {t('channel_settings.language_label')}
